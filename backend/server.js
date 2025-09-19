@@ -15,7 +15,8 @@ const { router: authRoutes } = require('./routes/auth');
 const salesRoutes = require('./routes/sales');
 const menuRoutes = require('./routes/menu');
 const tablesRoutes = require('./routes/tables');
-const { reportRouter: reportsRoutes, syncRouter: syncRoutes } = require('./routes/reports');
+const reportsRoutes = require('./routes/reports');
+const syncRoutes = require('./routes/sync');
 
 // Importar modelos de base de datos
 const { initDatabase, sequelize } = require('./database/init');

@@ -1,0 +1,8 @@
+{
+  "short_name": "POS Moderno",
+  "name": "Sistema POS Multipunto",
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#2563eb",
+  "background_color": "#ffffff"
+} 
