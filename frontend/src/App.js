@@ -1,15 +1,12 @@
 // frontend/src/App.js
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
+import POSView from './components/POSView';
 import { 
   ShoppingCart, 
   Coffee, 
   BarChart3, 
   LogOut, 
-  Plus, 
-  Minus, 
-  Trash2, 
-  CreditCard, 
   Menu,
   Calculator,
   MapPin,
@@ -85,7 +82,7 @@ class APIService {
       this.clearToken();
     } catch (error) {
       console.error('Error en logout:', error);
-      this.clearToken(); // Limpiar token aunque falle la llamada
+      this.clearToken();
     }
   }
 
@@ -210,7 +207,6 @@ const LoginScreen = ({ onLogin }) => {
           <h1 className="text-3xl font-bold text-gray-800 mb-2">POS Moderno</h1>
           <p className="text-gray-600">Sistema Multipunto Conectado</p>
           
-          {/* Indicador de estado del backend */}
           <div className="mt-4 flex items-center justify-center space-x-2">
             {backendStatus === 'connected' ? (
               <>
@@ -238,7 +234,7 @@ const LoginScreen = ({ onLogin }) => {
           </div>
         )}
         
-        <div onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <input
               type="text"
@@ -262,13 +258,13 @@ const LoginScreen = ({ onLogin }) => {
             />
           </div>
           <button
-            onClick={handleSubmit}
+            type="submit"
             disabled={loading || backendStatus !== 'connected'}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
           </button>
-        </div>
+        </form>
 
         <div className="mt-6 text-sm text-gray-600">
           <p className="font-semibold mb-2">Usuarios disponibles:</p>
@@ -350,7 +346,8 @@ const Sidebar = ({ currentView, setCurrentView }) => {
     { id: 'tables', icon: MapPin, label: 'Mesas', color: 'purple' },
     { id: 'sales', icon: BarChart3, label: 'Ventas del Día', color: 'orange' },
     { id: 'reports', icon: Calculator, label: 'Reportes', color: 'pink' },
-    { id: 'users', icon: Users, label: 'Usuarios', color: 'green' }
+    { id: 'users', icon: Users, label: 'Usuarios', color: 'green' },
+    { id: 'test', icon: Wifi, label: 'Pruebas', color: 'gray' }
   ];
 
   return (
@@ -390,7 +387,6 @@ const TestView = () => {
     const results = {};
 
     try {
-      // Test 1: Health check
       const health = await apiService.healthCheck();
       results.health = { success: true, data: health };
     } catch (error) {
@@ -398,7 +394,6 @@ const TestView = () => {
     }
 
     try {
-      // Test 2: Get menu
       const menu = await apiService.getMenu();
       results.menu = { success: true, count: menu.length };
     } catch (error) {
@@ -406,7 +401,6 @@ const TestView = () => {
     }
 
     try {
-      // Test 3: Get tables
       const tables = await apiService.getTables();
       results.tables = { success: true, count: tables.length };
     } catch (error) {
@@ -460,12 +454,9 @@ const App = () => {
   const [shift, setShift] = useState(null);
   const [currentView, setCurrentView] = useState('pos');
 
-  // Verificar token al cargar
   useEffect(() => {
     const token = localStorage.getItem('pos_token');
     if (token) {
-      // Aquí podrías verificar el token con el backend
-      // Por ahora, simplemente lo limpiamos para forzar login
       localStorage.removeItem('pos_token');
     }
   }, []);
@@ -488,6 +479,8 @@ const App = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'pos':
+        return <POSView apiService={apiService} user={user} />;
+      case 'test':
         return <TestView />;
       case 'tables':
         return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Mesas</h2><p>Vista en desarrollo...</p></div>;
@@ -498,7 +491,7 @@ const App = () => {
       case 'users':
         return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
       default:
-        return <TestView />;
+        return <POSView apiService={apiService} user={user} />;
     }
   };
 
