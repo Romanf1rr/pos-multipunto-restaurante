@@ -115,3 +115,93 @@ npm run db:migrate
 
 # 6. Iniciar el proyecto
 npm run dev
+
+
+📱 Usuarios de Prueba
+UsuarioContraseñaRolDispositivoadminadmin123AdministradorDesktoptablet1tablet123MeseroTablettablet2caja123CajeroTabletmesero1mesa123MeseroCualquiera
+
+
+🎯 Roadmap de Desarrollo
+✅ Fase 1: Fundación (Sesión 1)
+
+ Estructura básica del proyecto
+ Sistema de autenticación
+ Interfaz PWA responsive
+ Almacenamiento offline básico
+ Carrito de compras funcional
+
+🔄 Fase 2: Backend y Sincronización (Sesión 2)
+
+ Servidor Express con API REST
+ Base de datos SQLite local
+ Sistema de sincronización en tiempo real
+ WebSocket para comunicación entre tablets
+
+📋 Fase 3: Funcionalidades Avanzadas (Sesión 3)
+
+ Gestión de mesas en tiempo real
+ Sistema de reportes avanzado
+ Gestión de inventario básico
+ Impresión de tickets
+
+🚀 Fase 4: Producción (Sesión 4)
+
+ PWA completamente funcional
+ Docker containerization
+ Script de instalación automática
+ Documentación completa para usuarios finales
+
+📊 Estado Actual del Proyecto
+Última actualización: [FECHA]
+Progreso general: 25% completado
+Funcionalidades operativas:
+
+✅ Login multipunto
+✅ Interfaz básica de POS
+✅ Carrito de compras
+✅ Almacenamiento local
+⏳ Servidor backend (en desarrollo)
+
+🐛 Problemas Conocidos
+
+Sincronización: Aún no implementada entre dispositivos
+Base de datos: Usando localStorage temporal
+PWA: Falta service worker completo
+Roles: Sistema básico, necesita refinamiento
+
+📞 Soporte y Contribución
+Este proyecto está en desarrollo activo. Para reportar bugs o sugerir mejoras:
+
+Abre un Issue en GitHub
+Describe el problema detalladamente
+Incluye capturas de pantalla si es relevante
+Menciona el dispositivo/navegador usado
+
+📄 Licencia
+Este proyecto está bajo la licencia MIT. Ver LICENSE para más detalles.
+
+📝 Notas para Desarrollo
+Para mantener continuidad entre sesiones:
+
+Siempre actualiza este README con el progreso
+Documenta cambios importantes en docs/sesiones/
+Commitea frecuentemente con mensajes descriptivos
+Usa branches para funcionalidades grandes
+
+Template para nuevas sesiones:
+markdown# Sesión [NÚMERO] - [FECHA]
+
+## Objetivos Completados:
+- [ ] Objetivo 1
+- [ ] Objetivo 2
+
+## Próxima Sesión:
+- [ ] Pendiente 1
+- [ ] Pendiente 2
+
+## Decisiones Técnicas:
+- Decisión importante y su razón
+
+## Archivos Modificados:
+- archivo1.js
+- archivo2.jsx
