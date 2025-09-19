@@ -1,0 +1,61 @@
+{
+  "name": "pos-frontend",
+  "version": "1.0.0",
+  "description": "Frontend PWA para Sistema POS Multipunto",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1",
+    "react-router-dom": "^6.20.1",
+    "lucide-react": "^0.294.0",
+    "axios": "^1.6.2",
+    "moment": "^2.29.4",
+    "react-query": "^3.39.3",
+    "dexie": "^3.2.4",
+    "workbox-precaching": "^7.0.0",
+    "workbox-routing": "^7.0.0",
+    "workbox-strategies": "^7.0.0",
+    "web-vitals": "^3.5.0"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject",
+    "build:pwa": "npm run build && npm run sw:generate",
+    "sw:generate": "workbox generateSW workbox-config.js",
+    "serve": "serve -s build -l 3000",
+    "lint": "eslint src/",
+    "format": "prettier --write src/"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.1.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
+    "tailwindcss": "^3.3.6",
+    "autoprefixer": "^10.4.16",
+    "postcss": "^8.4.32",
+    "workbox-cli": "^7.0.0",
+    "serve": "^14.2.1"
+  },
+  "homepage": "."
+} 
