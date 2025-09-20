@@ -1,7 +1,9 @@
 // frontend/src/App.js
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
+import { GlobalStateProvider } from './context/GlobalStateContext'; // ✅ AGREGAR
 import POSView from './components/POSView';
+import UnifiedPOSView from './components/UnifiedPOSView';
 import TablesView from './components/TablesView';
 import MenuManagementView from './components/MenuManagementView';
 import { 
@@ -110,6 +112,17 @@ class APIService {
     return response.data;
   }
 
+  // Clientes
+  async getCustomers(search = '') {
+    const response = await axios.get(`/customers${search ? `?search=${search}` : ''}`);
+    return response.data.customers;
+  }
+
+  async createCustomer(customerData) {
+    const response = await axios.post('/customers', customerData);
+    return response.data.customer;
+  }
+
   // Ventas
   async createSale(saleData) {
     const response = await axios.post('/sales', saleData);
@@ -126,31 +139,31 @@ class APIService {
     return response.data.summary;
   }
 
-// Métodos para administración de menú
-async createMenuItem(itemData) {
-  const response = await axios.post('/menu/items', itemData);
-  return response.data.menuItem;
-}
+  // Métodos para administración de menú
+  async createMenuItem(itemData) {
+    const response = await axios.post('/menu/items', itemData);
+    return response.data.menuItem;
+  }
 
-async updateMenuItem(itemId, itemData) {
-  const response = await axios.put(`/menu/items/${itemId}`, itemData);
-  return response.data.menuItem;
-}
+  async updateMenuItem(itemId, itemData) {
+    const response = await axios.put(`/menu/items/${itemId}`, itemData);
+    return response.data.menuItem;
+  }
 
-async deleteMenuItem(itemId) {
-  const response = await axios.delete(`/menu/items/${itemId}`);
-  return response.data;
-}
+  async deleteMenuItem(itemId) {
+    const response = await axios.delete(`/menu/items/${itemId}`);
+    return response.data;
+  }
 
-async createCategory(categoryData) {
-  const response = await axios.post('/menu/categories', categoryData);
-  return response.data.category;
-}
+  async createCategory(categoryData) {
+    const response = await axios.post('/menu/categories', categoryData);
+    return response.data.category;
+  }
 
-async updateCategory(categoryId, categoryData) {
-  const response = await axios.put(`/menu/categories/${categoryId}`, categoryData);
-  return response.data.category;
-}
+  async updateCategory(categoryId, categoryData) {
+    const response = await axios.put(`/menu/categories/${categoryId}`, categoryData);
+    return response.data.category;
+  }
 
   // Health check
   async healthCheck() {
@@ -477,8 +490,8 @@ const TestView = () => {
   );
 };
 
-// Componente Principal
-const App = () => {
+// Componente Principal de la aplicación interna
+const MainApp = () => {
   const [user, setUser] = useState(null);
   const [shift, setShift] = useState(null);
   const [currentView, setCurrentView] = useState('pos');
@@ -503,28 +516,30 @@ const App = () => {
     }
     setUser(null);
     setShift(null);
+    // Limpiar estado global al cerrar sesión
+    localStorage.removeItem('pos_global_state');
   };
 
   const renderCurrentView = () => {
-  switch (currentView) {
-    case 'pos':
-      return <POSView apiService={apiService} user={user} />;
-    case 'tables':
-      return <TablesView apiService={apiService} user={user} />;
-    case 'menu':
-      return <MenuManagementView apiService={apiService} user={user} />;
-    case 'test':
-      return <TestView />;
-    case 'sales':
-      return <div className="p-6"><h2 className="text-2xl font-bold">Ventas del Día</h2><p>Vista en desarrollo...</p></div>;
-    case 'reports':
-      return <div className="p-6"><h2 className="text-2xl font-bold">Reportes</h2><p>Vista en desarrollo...</p></div>;
-    case 'users':
-      return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
-    default:
-      return <POSView apiService={apiService} user={user} />;
-  }
-};
+    switch (currentView) {
+      case 'pos':
+        return <UnifiedPOSView apiService={apiService} user={user} />;
+      case 'tables':
+        return <TablesView apiService={apiService} user={user} />;
+      case 'menu':
+        return <MenuManagementView apiService={apiService} user={user} />;
+      case 'test':
+        return <TestView />;
+      case 'sales':
+        return <div className="p-6"><h2 className="text-2xl font-bold">Ventas del Día</h2><p>Vista en desarrollo...</p></div>;
+      case 'reports':
+        return <div className="p-6"><h2 className="text-2xl font-bold">Reportes</h2><p>Vista en desarrollo...</p></div>;
+      case 'users':
+        return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
+      default:
+        return <UnifiedPOSView apiService={apiService} user={user} />;
+    }
+  };
 
   if (!user) {
     return <LoginScreen onLogin={handleLogin} />;
@@ -543,6 +558,15 @@ const App = () => {
         </div>
       </div>
     </AppContext.Provider>
+  );
+};
+
+// Componente raíz con GlobalStateProvider
+const App = () => {
+  return (
+    <GlobalStateProvider>
+      <MainApp />
+    </GlobalStateProvider>
   );
 };
 

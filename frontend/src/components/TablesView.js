@@ -1,22 +1,33 @@
 // frontend/src/components/TablesView.js
 import React, { useState, useEffect } from 'react';
+import { useGlobalState } from '../context/GlobalStateContext';
 import { 
   Users, Clock, MapPin, CheckCircle, AlertCircle, 
-  XCircle, Utensils, Plus, Trash2, Edit3 
+  XCircle, Utensils, Plus, Trash2, Edit3, Save, X 
 } from 'lucide-react';
 
 const TablesView = ({ apiService, user }) => {
-  const [tables, setTables] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { tables, setTables, updateTable, addTable, removeTable } = useGlobalState();
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedTable, setSelectedTable] = useState(null);
   const [showTableModal, setShowTableModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newTable, setNewTable] = useState({
+    number: '',
+    capacity: 4,
+    location: '',
+    status: 'available'
+  });
 
   useEffect(() => {
-    loadTables();
-  }, []);
+    if (tables.length === 0) {
+      loadTables();
+    }
+  }, [tables.length]);
 
   const loadTables = async () => {
+    setLoading(true);
     try {
       const tablesData = await apiService.getTables();
       setTables(tablesData);
@@ -30,11 +41,47 @@ const TablesView = ({ apiService, user }) => {
   const updateTableStatus = async (tableId, newStatus) => {
     try {
       await apiService.updateTableStatus(tableId, newStatus);
-      setTables(tables.map(table => 
-        table.id === tableId ? { ...table, status: newStatus } : table
-      ));
+      const updatedTable = tables.find(t => t.id === tableId);
+      updateTable({ ...updatedTable, status: newStatus });
     } catch (error) {
       setError('Error actualizando mesa: ' + error.message);
+    }
+  };
+
+  const handleAddTable = async () => {
+    if (!newTable.number || tables.find(t => t.number === parseInt(newTable.number))) {
+      setError('Número de mesa requerido y debe ser único');
+      return;
+    }
+
+    try {
+      // Simular creación de mesa (necesitarías crear la API real)
+      const tableData = {
+        id: Date.now(), // En producción sería generado por el backend
+        number: parseInt(newTable.number),
+        capacity: parseInt(newTable.capacity),
+        location: newTable.location,
+        status: newTable.status,
+        isActive: true
+      };
+
+      addTable(tableData);
+      setNewTable({ number: '', capacity: 4, location: '', status: 'available' });
+      setShowAddModal(false);
+      setError('');
+    } catch (error) {
+      setError('Error agregando mesa: ' + error.message);
+    }
+  };
+
+  const handleDeleteTable = async (tableId) => {
+    if (window.confirm('¿Estás seguro de eliminar esta mesa?')) {
+      try {
+        // Simular eliminación (necesitarías crear la API real)
+        removeTable(tableId);
+      } catch (error) {
+        setError('Error eliminando mesa: ' + error.message);
+      }
     }
   };
 
@@ -111,6 +158,21 @@ const TablesView = ({ apiService, user }) => {
         <div className="absolute top-3 right-3">
           {getStatusIcon()}
         </div>
+
+        {/* Botones de acción para admin */}
+        {user.role === 'admin' && (
+          <div className="absolute top-3 left-3 flex space-x-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteTable(table.id);
+              }}
+              className="w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center hover:bg-red-600"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+        )}
 
         {/* Representación visual de la mesa */}
         <div className="flex flex-col items-center mb-4">
@@ -249,7 +311,79 @@ const TablesView = ({ apiService, user }) => {
     );
   };
 
-  if (loading) {
+  // Modal para agregar nueva mesa
+  const AddTableModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-xl font-bold">Agregar Nueva Mesa</h3>
+          <button 
+            onClick={() => setShowAddModal(false)}
+            className="p-2 hover:bg-gray-100 rounded-full"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Número de Mesa *</label>
+            <input
+              type="number"
+              value={newTable.number}
+              onChange={(e) => setNewTable(prev => ({ ...prev, number: e.target.value }))}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ej: 9"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Capacidad</label>
+            <select
+              value={newTable.capacity}
+              onChange={(e) => setNewTable(prev => ({ ...prev, capacity: parseInt(e.target.value) }))}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value={2}>2 personas</option>
+              <option value={4}>4 personas</option>
+              <option value={6}>6 personas</option>
+              <option value={8}>8 personas</option>
+              <option value={10}>10 personas</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-1">Ubicación</label>
+            <input
+              type="text"
+              value={newTable.location}
+              onChange={(e) => setNewTable(prev => ({ ...prev, location: e.target.value }))}
+              className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Ej: Terraza, Interior, Ventana"
+            />
+          </div>
+        </div>
+
+        <div className="flex space-x-3 mt-6">
+          <button
+            onClick={() => setShowAddModal(false)}
+            className="flex-1 py-3 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleAddTable}
+            className="flex-1 py-3 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center"
+          >
+            <Save className="w-5 h-5 mr-2" />
+            Agregar Mesa
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading && tables.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -271,7 +405,7 @@ const TablesView = ({ apiService, user }) => {
           </div>
           {user.role === 'admin' && (
             <button
-              onClick={() => setShowTableModal(true)}
+              onClick={() => setShowAddModal(true)}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -319,8 +453,11 @@ const TablesView = ({ apiService, user }) => {
 
       {/* Modal de gestión de mesa */}
       {selectedTable && <TableModal />}
+
+      {/* Modal de agregar mesa */}
+      {showAddModal && <AddTableModal />}
     </div>
   );
 };
 
-export default TablesView; 
+export default TablesView;
