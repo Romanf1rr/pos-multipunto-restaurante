@@ -1,16 +1,27 @@
-// frontend/src/components/UnifiedPOSView.js
+// frontend/src/components/UnifiedPOSView.js - Versión completa mejorada
 import React, { useState, useEffect } from 'react';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { 
   ShoppingCart, Users, Truck, Package, Phone, MapPin, Plus, Search, 
-  Minus, Check, X, AlertTriangle 
+  Minus, Check, X, AlertTriangle, CreditCard, Trash2, Percent
 } from 'lucide-react';
+// Importaciones para persistencia
+import dataPersistence from '../services/DataPersistence';
+import { usePersistentTables } from '../hooks/usePersistentTables';
 
 const UnifiedPOSView = ({ apiService, user }) => {
-  // Estado global
+  // Usar mesas persistentes en lugar del estado global
   const {
-    tables, customers, menuItems, categories,
-    setTables, setCustomers, setMenuItems, setCategories, updateTable,
+    mesas: persistentTables,
+    loading: tablesLoading,
+    agregarMesa,
+    cambiarEstadoMesa
+  } = usePersistentTables();
+
+  // Estado global (manteniendo funcionalidad existente)
+  const {
+    customers, menuItems, categories,
+    setCustomers, setMenuItems, setCategories,
     addToCart, updateCartItem, clearCart, getCurrentCart, hasItemsInCart
   } = useGlobalState();
 
@@ -26,6 +37,11 @@ const UnifiedPOSView = ({ apiService, user }) => {
   const [customerSearch, setCustomerSearch] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('cash');
 
+  // Estados para descuentos
+  const [descuento, setDescuento] = useState(0);
+  const [tipoDescuento, setTipoDescuento] = useState('porcentaje'); // 'porcentaje' o 'fijo'
+  const [mostrarDescuento, setMostrarDescuento] = useState(false);
+
   // Estado para nuevo cliente
   const [newCustomer, setNewCustomer] = useState({
     phone: '',
@@ -35,12 +51,95 @@ const UnifiedPOSView = ({ apiService, user }) => {
     city: 'Ciudad Guzmán'
   });
 
+  // Estados para debug y control de persistencia
+  const [lastSelectedTableId, setLastSelectedTableId] = useState(null);
+
+  // Usar mesas persistentes en lugar de estado global
+  const tables = persistentTables;
+
   // Cargar datos iniciales solo si no existen
   useEffect(() => {
-    if (menuItems.length === 0 || tables.length === 0) {
+    if (menuItems.length === 0) {
       loadInitialData();
     }
-  }, [menuItems.length, tables.length]);
+  }, [menuItems.length]);
+
+  // Inicializar persistencia al cargar componente
+  useEffect(() => {
+    const initPersistence = async () => {
+      try {
+        await dataPersistence.init();
+        console.log('✅ Sistema de persistencia inicializado');
+      } catch (error) {
+        console.error('Error inicializando persistencia:', error);
+      }
+    };
+    initPersistence();
+  }, []);
+
+  // NUEVA LÓGICA MEJORADA: Cargar carrito persistente solo cuando sea necesario
+  useEffect(() => {
+    if (selectedTable && orderType === 'dine-in' && selectedTable.id !== lastSelectedTableId) {
+      console.log('🔄 Seleccionando mesa:', selectedTable.numero, 'ID:', selectedTable.id);
+      setLastSelectedTableId(selectedTable.id);
+      verificarYCargarCarrito();
+    }
+  }, [selectedTable?.id, orderType]);
+
+  // FUNCIÓN MEJORADA: Verificar y cargar carrito sin sobrescribir
+  const verificarYCargarCarrito = async () => {
+    try {
+      const cartKey = `table-${selectedTable.id}`;
+      const carritoActual = getCurrentCart(cartKey);
+      
+      console.log('📋 Estado del carrito actual:', carritoActual.length, 'items');
+      
+      // Solo cargar desde persistencia si el carrito actual está REALMENTE vacío
+      if (carritoActual.length === 0) {
+        const carritoGuardado = await dataPersistence.obtenerCarrito(selectedTable.id);
+        console.log('💾 Carrito guardado encontrado:', carritoGuardado.length, 'items');
+        
+        if (carritoGuardado.length > 0) {
+          console.log('🔄 Restaurando carrito desde persistencia...');
+          
+          // Usar un pequeño delay para asegurar que el estado se actualice correctamente
+          setTimeout(() => {
+            carritoGuardado.forEach(item => {
+              const itemBase = {
+                id: item.id,
+                name: item.name || item.nombre,
+                price: item.price || item.precio
+              };
+              
+              // Agregar el item la cantidad de veces guardada
+              for (let i = 0; i < (item.cantidad || item.quantity || 1); i++) {
+                addToCart(cartKey, itemBase);
+              }
+            });
+            console.log('✅ Carrito restaurado exitosamente');
+          }, 100);
+        }
+      } else {
+        console.log('📌 Carrito actual tiene productos, no sobrescribiendo');
+        // Si hay carrito actual, asegurar que esté guardado en persistencia
+        await guardarCarritoEnPersistencia(selectedTable.id, carritoActual);
+      }
+    } catch (error) {
+      console.error('❌ Error verificando carrito:', error);
+    }
+  };
+
+  // FUNCIÓN AUXILIAR: Guardar carrito en persistencia
+  const guardarCarritoEnPersistencia = async (mesaId, carrito) => {
+    try {
+      if (carrito.length > 0) {
+        await dataPersistence.guardarCarrito(mesaId, carrito);
+        console.log('💾 Carrito guardado en persistencia:', carrito.length, 'items');
+      }
+    } catch (error) {
+      console.error('❌ Error guardando carrito:', error);
+    }
+  };
 
   // Establecer categoría por defecto
   useEffect(() => {
@@ -49,36 +148,34 @@ const UnifiedPOSView = ({ apiService, user }) => {
     }
   }, [categories, selectedCategory]);
 
-  // Efecto para sincronizar estado de mesas automáticamente
+  // Efecto mejorado para sincronizar estado de mesas con persistencia
   useEffect(() => {
     tables.forEach(table => {
       const cartKey = `table-${table.id}`;
       const hasItems = hasItemsInCart(cartKey);
       
       // Si la mesa tiene productos pero está marcada como disponible, cambiarla a ocupada
-      if (hasItems && table.status === 'available') {
-        updateTableStatusAutomatically(table.id, 'occupied');
+      if (hasItems && table.estado === 'disponible') {
+        updateTableStatusAutomatically(table.id, 'ocupada');
       }
       // Si la mesa no tiene productos pero está marcada como ocupada, cambiarla a disponible
-      else if (!hasItems && table.status === 'occupied') {
-        updateTableStatusAutomatically(table.id, 'available');
+      else if (!hasItems && table.estado === 'ocupada') {
+        updateTableStatusAutomatically(table.id, 'disponible');
       }
     });
-  }, [tables, hasItemsInCart, updateTable]);
+  }, [tables, hasItemsInCart]);
 
   const loadInitialData = async () => {
     setLoading(true);
     try {
-      const [categoriesData, menuData, tablesData, customersData] = await Promise.all([
+      const [categoriesData, menuData, customersData] = await Promise.all([
         apiService.getCategories(),
         apiService.getMenu(),
-        apiService.getTables(),
         loadCustomers()
       ]);
       
       setCategories(categoriesData);
       setMenuItems(menuData);
-      setTables(tablesData);
       setCustomers(customersData);
     } catch (error) {
       setError('Error cargando datos: ' + error.message);
@@ -87,19 +184,20 @@ const UnifiedPOSView = ({ apiService, user }) => {
     }
   };
 
-  // Función para actualizar estado de mesa automáticamente
+  // Función mejorada con persistencia
   const updateTableStatusAutomatically = async (tableId, newStatus) => {
     try {
-      // Actualizar en el backend
-      await apiService.updateTableStatus(tableId, newStatus);
+      // Actualizar en persistencia local
+      await cambiarEstadoMesa(tableId, newStatus);
       
-      // Actualizar en el estado local
-      const updatedTable = tables.find(t => t.id === tableId);
-      if (updatedTable) {
-        updateTable({ ...updatedTable, status: newStatus });
+      // Intentar actualizar en el backend si está disponible
+      try {
+        await apiService.updateTableStatus(tableId, newStatus);
+      } catch (backendError) {
+        console.warn('Backend no disponible, estado actualizado solo localmente');
       }
     } catch (error) {
-      console.error('Error actualizando estado de mesa automáticamente:', error);
+      console.error('Error actualizando estado de mesa:', error);
     }
   };
 
@@ -163,20 +261,33 @@ const UnifiedPOSView = ({ apiService, user }) => {
     setOrderType(type);
     setSelectedTable(null);
     setSelectedCustomer(null);
+    setLastSelectedTableId(null); // Reset del control de tabla
     setError('');
+    // Resetear descuentos al cambiar tipo de orden
+    setDescuento(0);
+    setMostrarDescuento(false);
   };
 
   const handleTableSelect = (table) => {
     if (orderType !== 'dine-in') return;
+    
+    console.log('🏪 Seleccionando mesa:', table.numero, 'Estado actual:', table.estado);
+    
     setSelectedTable(table);
+    // Resetear descuentos al cambiar mesa
+    setDescuento(0);
+    setMostrarDescuento(false);
   };
 
   const handleCustomerSelect = (customer) => {
     setSelectedCustomer(customer);
     setShowCustomerModal(false);
+    // Resetear descuentos al cambiar cliente
+    setDescuento(0);
+    setMostrarDescuento(false);
   };
 
-  // Funciones del carrito con sincronización automática
+  // Funciones del carrito con sincronización automática MEJORADAS
   const getCartKey = () => {
     if (orderType === 'dine-in' && selectedTable) return `table-${selectedTable.id}`;
     if (orderType === 'delivery' && selectedCustomer) return `delivery-${selectedCustomer.id}`;
@@ -184,7 +295,8 @@ const UnifiedPOSView = ({ apiService, user }) => {
     return null;
   };
 
-  const handleAddToCart = (item) => {
+  // FUNCIÓN MEJORADA: Agregar al carrito con persistencia inmediata
+  const handleAddToCart = async (item) => {
     const cartKey = getCartKey();
     if (!cartKey) {
       if (orderType === 'dine-in') setError('Selecciona una mesa primero');
@@ -192,53 +304,126 @@ const UnifiedPOSView = ({ apiService, user }) => {
       return;
     }
 
+    console.log('➕ Agregando producto:', item.name, 'a', cartKey);
+    
     addToCart(cartKey, item);
     setError('');
 
-    // Si es una mesa y está disponible, cambiarla a ocupada automáticamente
-    if (orderType === 'dine-in' && selectedTable && selectedTable.status === 'available') {
-      updateTableStatusAutomatically(selectedTable.id, 'occupied');
+    // Guardar en persistencia INMEDIATAMENTE después de agregar
+    if (orderType === 'dine-in' && selectedTable) {
+      // Usar setTimeout para permitir que React actualice el estado primero
+      setTimeout(async () => {
+        try {
+          const currentCart = getCurrentCart(cartKey);
+          await guardarCarritoEnPersistencia(selectedTable.id, currentCart);
+          
+          // Si es una mesa y está disponible, cambiarla a ocupada automáticamente
+          if (selectedTable.estado === 'disponible') {
+            updateTableStatusAutomatically(selectedTable.id, 'ocupada');
+          }
+        } catch (error) {
+          console.error('Error guardando carrito después de agregar:', error);
+        }
+      }, 100);
     }
   };
 
-  const handleUpdateQuantity = (itemId, newQuantity) => {
+  // FUNCIÓN MEJORADA: Actualizar cantidad con persistencia inmediata
+  const handleUpdateQuantity = async (itemId, newQuantity) => {
     const cartKey = getCartKey();
     if (!cartKey) return;
+    
+    console.log('🔄 Actualizando cantidad. Item:', itemId, 'Nueva cantidad:', newQuantity);
     
     updateCartItem(cartKey, itemId, newQuantity);
 
-    // Si se vacía el carrito de una mesa, cambiarla a disponible
-    setTimeout(() => {
-      if (orderType === 'dine-in' && selectedTable) {
-        const currentCart = getCurrentCart(cartKey);
-        if (currentCart.length === 0 && selectedTable.status === 'occupied') {
-          updateTableStatusAutomatically(selectedTable.id, 'available');
+    // Guardar en persistencia INMEDIATAMENTE
+    if (orderType === 'dine-in' && selectedTable) {
+      setTimeout(async () => {
+        try {
+          const currentCart = getCurrentCart(cartKey);
+          await guardarCarritoEnPersistencia(selectedTable.id, currentCart);
+          
+          // Si se vacía el carrito de una mesa, cambiarla a disponible
+          if (currentCart.length === 0 && selectedTable.estado === 'ocupada') {
+            updateTableStatusAutomatically(selectedTable.id, 'disponible');
+          }
+        } catch (error) {
+          console.error('Error actualizando carrito persistente:', error);
         }
-      }
-    }, 100); // Pequeño delay para que se actualice el estado del carrito
-  };
-
-  const handleClearCart = () => {
-    const cartKey = getCartKey();
-    if (!cartKey) return;
-    
-    clearCart(cartKey);
-
-    // Si se limpia el carrito de una mesa, cambiarla a disponible
-    if (orderType === 'dine-in' && selectedTable && selectedTable.status === 'occupied') {
-      updateTableStatusAutomatically(selectedTable.id, 'available');
+      }, 100);
     }
   };
 
+  // FUNCIÓN MEJORADA: Limpiar carrito con persistencia
+  const handleClearCart = async () => {
+    const cartKey = getCartKey();
+    if (!cartKey) return;
+    
+    console.log('🗑️ Limpiando carrito:', cartKey);
+    
+    clearCart(cartKey);
+
+    // Limpiar persistencia si es una mesa
+    if (orderType === 'dine-in' && selectedTable) {
+      try {
+        await dataPersistence.limpiarCarritoMesa(selectedTable.id);
+        // Si se limpia el carrito de una mesa, cambiarla a disponible
+        if (selectedTable.estado === 'ocupada') {
+          updateTableStatusAutomatically(selectedTable.id, 'disponible');
+        }
+      } catch (error) {
+        console.error('Error limpiando carrito persistente:', error);
+      }
+    }
+
+    // Resetear descuentos al limpiar carrito
+    setDescuento(0);
+    setMostrarDescuento(false);
+  };
+
+  // Nueva función para calcular total sin IVA y con descuentos
   const getCartTotal = () => {
     const cartKey = getCartKey();
     const currentCart = getCurrentCart(cartKey);
     const subtotal = currentCart.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const tax = subtotal * 0.16;
-    return subtotal + tax;
+    
+    // Calcular descuento
+    const montoDescuento = tipoDescuento === 'porcentaje' 
+      ? (subtotal * descuento) / 100 
+      : descuento;
+    
+    // Total final SIN IVA
+    return Math.max(0, subtotal - montoDescuento);
   };
 
-  // Procesar venta con actualización de estado de mesa
+  const getCartSubtotal = () => {
+    const cartKey = getCartKey();
+    const currentCart = getCurrentCart(cartKey);
+    return currentCart.reduce((total, item) => total + (item.price * item.quantity), 0);
+  };
+
+  const getCartDiscount = () => {
+    const subtotal = getCartSubtotal();
+    return tipoDescuento === 'porcentaje' 
+      ? (subtotal * descuento) / 100 
+      : descuento;
+  };
+
+  // Funciones para manejar descuentos
+  const handleAplicarDescuento = () => {
+    if (descuento < 0) setDescuento(0);
+    if (tipoDescuento === 'porcentaje' && descuento > 100) setDescuento(100);
+    if (tipoDescuento === 'fijo' && descuento > getCartSubtotal()) setDescuento(getCartSubtotal());
+    setMostrarDescuento(false);
+  };
+
+  const handleQuitarDescuento = () => {
+    setDescuento(0);
+    setMostrarDescuento(false);
+  };
+
+  // FUNCIÓN MEJORADA: Procesar venta con persistencia y folios
   const processSale = async () => {
     const cartKey = getCartKey();
     const currentCart = getCurrentCart(cartKey);
@@ -250,7 +435,11 @@ const UnifiedPOSView = ({ apiService, user }) => {
 
     setLoading(true);
     try {
+      // Obtener folio persistente
+      const folio = await dataPersistence.obtenerSiguienteFolio();
+      
       const saleData = {
+        folio: folio,
         items: currentCart.map(item => ({
           id: item.id,
           quantity: item.quantity
@@ -259,50 +448,67 @@ const UnifiedPOSView = ({ apiService, user }) => {
         tableId: selectedTable?.id || null,
         customerId: selectedCustomer?.id || null,
         paymentMethod,
+        subtotal: getCartSubtotal(),
+        descuento: getCartDiscount(),
+        tipo_descuento: tipoDescuento,
+        total: getCartTotal(),
         notes: `Venta procesada por ${user.name}`,
         deviceId: `device_${user.id}`
       };
 
-      const result = await apiService.createSale(saleData);
-      
-      if (result.success) {
-        // Limpiar carrito
-        clearCart(cartKey);
-        setShowPayment(false);
-        setError('');
-        
-        // Actualizar estado de mesa a disponible después de la venta
-        if (selectedTable && orderType === 'dine-in') {
-          await updateTableStatusAutomatically(selectedTable.id, 'available');
-          setSelectedTable(null);
-        }
-        
-        alert(`Venta procesada exitosamente!\nTotal: $${getCartTotal().toFixed(2)}\nFolio: ${result.sale.id}`);
+      console.log('💰 Procesando venta:', saleData);
+
+      // Guardar venta en persistencia
+      await dataPersistence.guardarVenta(saleData);
+
+      // Intentar enviar al backend si está disponible
+      try {
+        await apiService.createSale(saleData);
+        console.log('✅ Venta enviada al backend');
+      } catch (backendError) {
+        console.warn('⚠️ Backend no disponible, venta guardada solo localmente');
       }
+
+      // Limpiar carrito y persistencia
+      clearCart(cartKey);
+      if (orderType === 'dine-in' && selectedTable) {
+        await dataPersistence.limpiarCarritoMesa(selectedTable.id);
+        await updateTableStatusAutomatically(selectedTable.id, 'disponible');
+        setSelectedTable(null);
+        setLastSelectedTableId(null); // Reset del control
+      }
+      
+      setShowPayment(false);
+      setError('');
+      setDescuento(0);
+      setMostrarDescuento(false);
+      
+      alert(`¡Venta procesada exitosamente!\nFolio: ${folio}\nTotal: $${getCartTotal().toFixed(2)}`);
+      
     } catch (error) {
+      console.error('❌ Error procesando venta:', error);
       setError('Error procesando venta: ' + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  // Función para obtener el color correcto de mesa basado en carrito
+  // Función mejorada para obtener color de mesa
   const getTableStatusColor = (table) => {
     const cartKey = `table-${table.id}`;
     const hasItems = hasItemsInCart(cartKey);
     
     // Si tiene items en el carrito, debe mostrarse como ocupada
     if (hasItems) {
-      return 'bg-red-500 hover:bg-red-600';
+      return 'bg-red-500 hover:bg-red-600 text-white';
     }
     
-    // Sino, usar el estado real de la mesa
-    switch (table.status) {
-      case 'available': return 'bg-green-500 hover:bg-green-600';
-      case 'occupied': return 'bg-red-500 hover:bg-red-600';
-      case 'reserved': return 'bg-yellow-500 hover:bg-yellow-600';
-      case 'cleaning': return 'bg-gray-500 hover:bg-gray-600';
-      default: return 'bg-gray-500 hover:bg-gray-600';
+    // Usar el estado de la mesa persistente
+    switch (table.estado) {
+      case 'disponible': return 'bg-green-500 hover:bg-green-600 text-white';
+      case 'ocupada': return 'bg-red-500 hover:bg-red-600 text-white';
+      case 'reservada': return 'bg-yellow-500 hover:bg-yellow-600 text-white';
+      default: return 'bg-gray-500 hover:bg-gray-600 text-white';
     }
   };
 
@@ -316,7 +522,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
     customer.name.toLowerCase().includes(customerSearch.toLowerCase())
   );
 
-  if (loading && menuItems.length === 0) {
+  if ((loading && menuItems.length === 0) || tablesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
@@ -389,7 +595,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
             <>
               <div className="flex items-center mb-4">
                 <Users className="mr-2 text-blue-600" size={24} />
-                <h2 className="text-xl font-bold text-gray-800">Mesas</h2>
+                <h2 className="text-xl font-bold text-gray-800">Mesas Persistentes</h2>
               </div>
               
               <div className="grid grid-cols-2 gap-3">
@@ -404,9 +610,9 @@ const UnifiedPOSView = ({ apiService, user }) => {
                       ${hasItemsInCart(`table-${table.id}`) ? 'ring-4 ring-orange-400' : ''}
                     `}
                   >
-                    <div className="text-center text-white">
-                      <div className="text-lg font-bold">Mesa {table.number}</div>
-                      <div className="text-sm opacity-90">{table.capacity} personas</div>
+                    <div className="text-center">
+                      <div className="text-lg font-bold">Mesa {table.numero}</div>
+                      <div className="text-sm opacity-90">{table.capacidad} personas</div>
                       {hasItemsInCart(`table-${table.id}`) && (
                         <div className="absolute -top-2 -right-2 bg-orange-500 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold border-2 border-white">
                           {getCurrentCart(`table-${table.id}`).length}
@@ -479,10 +685,10 @@ const UnifiedPOSView = ({ apiService, user }) => {
         {/* Panel Central - Menú */}
         <div className="flex-1 p-4">
           {/* Categorías */}
-          <div className="flex space-x-2 mb-4">
+          <div className="flex space-x-2 mb-4 overflow-x-auto">
             <button
               onClick={() => setSelectedCategory(null)}
-              className={`px-4 py-2 rounded-lg transition-colors ${
+              className={`px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                 !selectedCategory 
                   ? 'bg-blue-600 text-white' 
                   : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -494,7 +700,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
+                className={`flex items-center px-4 py-2 rounded-lg transition-colors whitespace-nowrap ${
                   selectedCategory === category.id 
                     ? 'bg-blue-600 text-white' 
                     : 'bg-white text-gray-700 hover:bg-gray-50'
@@ -506,42 +712,43 @@ const UnifiedPOSView = ({ apiService, user }) => {
           </div>
 
           {/* Items del Menú */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[calc(100vh-200px)]">
             {filteredItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => handleAddToCart(item)}
                 className="bg-white p-4 rounded-lg shadow hover:shadow-md transition-shadow border border-gray-200 hover:border-blue-300"
+                disabled={loading}
               >
                 <div className="text-center">
                   <div className="text-3xl mb-2">{item.image || '🍽️'}</div>
-                  <h3 className="font-semibold text-gray-800 mb-1">{item.name}</h3>
-                  <p className="text-xl font-bold text-blue-600">${parseFloat(item.price).toFixed(2)}</p>
+                  <h3 className="font-semibold text-gray-800 mb-1 text-sm leading-tight">{item.name}</h3>
+                  <p className="text-lg font-bold text-blue-600">${parseFloat(item.price).toFixed(2)}</p>
                 </div>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Panel de Carrito - Derecha */}
-        <div className="w-1/3 bg-white shadow-lg p-4 flex flex-col">
-          <div className="flex items-center justify-between mb-4">
+        {/* Panel de Carrito Mejorado */}
+        <div className="w-1/3 bg-white shadow-lg flex flex-col">
+          <div className="p-3 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center">
-              <ShoppingCart className="mr-2 text-green-600" size={24} />
-              <h2 className="text-xl font-bold text-gray-800">Carrito</h2>
+              <ShoppingCart className="mr-2 text-green-600" size={20} />
+              <h2 className="text-lg font-bold text-gray-800">Carrito</h2>
             </div>
             {orderType === 'dine-in' && selectedTable && (
-              <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-semibold">
-                Mesa {selectedTable.number}
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-semibold">
+                Mesa {selectedTable.numero}
               </span>
             )}
             {orderType === 'delivery' && selectedCustomer && (
-              <span className="bg-orange-100 text-orange-800 px-3 py-1 rounded-full text-sm font-semibold">
+              <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-semibold">
                 {selectedCustomer.name}
               </span>
             )}
             {orderType === 'takeaway' && (
-              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-semibold">
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-semibold">
                 Para llevar
               </span>
             )}
@@ -567,72 +774,177 @@ const UnifiedPOSView = ({ apiService, user }) => {
             </div>
           ) : (
             <>
-              {/* Items del carrito */}
-              <div className="flex-1 space-y-3 overflow-y-auto">
-                {getCurrentCart(getCartKey()).map(item => (
-                  <div key={item.id} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-800">{item.name}</h4>
-                      <p className="text-sm text-gray-600">${parseFloat(item.price).toFixed(2)} c/u</p>
+              {/* Items del carrito con scroll MEJORADO */}
+              <div className="flex-1 overflow-y-auto p-2 min-h-0 max-h-[350px]">
+                <div className="space-y-1">
+                  {getCurrentCart(getCartKey()).map(item => (
+                    <div key={item.id} className="bg-gray-50 rounded-md p-2 flex items-center justify-between text-xs">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-medium text-gray-800 text-xs leading-tight truncate">{item.name}</h4>
+                        <p className="text-blue-600 font-semibold text-xs">${parseFloat(item.price).toFixed(2)} c/u</p>
+                      </div>
+                      <div className="flex items-center space-x-1 ml-2">
+                        <button
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                          className="w-6 h-6 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
+                        >
+                          <Minus size={12} />
+                        </button>
+                        <span className="w-6 text-center font-semibold text-xs">{item.quantity}</span>
+                        <button
+                          onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                          className="w-6 h-6 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600"
+                        >
+                          <Plus size={12} />
+                        </button>
+                        <div className="text-right min-w-[40px]">
+                          <p className="font-semibold text-gray-800 text-xs">
+                            ${(item.price * item.quantity).toFixed(2)}
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                  ))}
+                </div>
+              </div>
+
+              {/* Sección de descuentos COMPACTA */}
+              <div className="p-3 border-t border-gray-200">
+                {!mostrarDescuento && descuento === 0 && (
+                  <button
+                    onClick={() => setMostrarDescuento(true)}
+                    className="w-full flex items-center justify-center space-x-2 text-green-600 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                  >
+                    <Percent className="w-3 h-3" />
+                    <span className="text-xs font-medium">Aplicar Descuento</span>
+                  </button>
+                )}
+
+                {mostrarDescuento && (
+                  <div className="space-y-2 p-2 bg-green-50 rounded-lg">
+                    <h4 className="font-medium text-green-800 text-sm">Configurar Descuento</h4>
+                    
+                    <div className="flex space-x-1">
                       <button
-                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                        className="w-8 h-8 rounded-full bg-red-500 text-white flex items-center justify-center hover:bg-red-600"
+                        onClick={() => setTipoDescuento('porcentaje')}
+                        className={`px-2 py-1 rounded text-xs ${
+                          tipoDescuento === 'porcentaje'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-white text-green-600 border'
+                        }`}
                       >
-                        <Minus size={16} />
+                        %
                       </button>
-                      <span className="w-8 text-center font-semibold">{item.quantity}</span>
                       <button
-                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                        className="w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center hover:bg-green-600"
+                        onClick={() => setTipoDescuento('fijo')}
+                        className={`px-2 py-1 rounded text-xs ${
+                          tipoDescuento === 'fijo'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-white text-green-600 border'
+                        }`}
                       >
-                        <Plus size={16} />
+                        $
+                      </button>
+                    </div>
+
+                    <div className="flex space-x-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max={tipoDescuento === 'porcentaje' ? 100 : getCartSubtotal()}
+                        value={descuento}
+                        onChange={(e) => setDescuento(Number(e.target.value))}
+                        className="flex-1 px-2 py-1 border rounded text-xs"
+                        placeholder={tipoDescuento === 'porcentaje' ? '0-100' : '0.00'}
+                        step={tipoDescuento === 'porcentaje' ? 1 : 0.01}
+                      />
+                      <button
+                        onClick={handleAplicarDescuento}
+                        className="px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700"
+                      >
+                        Aplicar
+                      </button>
+                      <button
+                        onClick={() => setMostrarDescuento(false)}
+                        className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-xs hover:bg-gray-400"
+                      >
+                        Cancelar
                       </button>
                     </div>
                   </div>
-                ))}
+                )}
+
+                {descuento > 0 && !mostrarDescuento && (
+                  <div className="flex items-center justify-between p-2 bg-green-100 rounded-lg">
+                    <span className="text-green-800 text-xs">
+                      Descuento {tipoDescuento === 'porcentaje' ? `${descuento}%` : `${descuento.toFixed(2)}`}
+                    </span>
+                    <button
+                      onClick={handleQuitarDescuento}
+                      className="text-green-600 hover:text-green-800"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Información del cliente para delivery */}
               {orderType === 'delivery' && selectedCustomer && (
-                <div className="mt-4 p-3 bg-orange-50 rounded-lg border border-orange-200">
+                <div className="p-3 bg-orange-50 border-t border-orange-200">
                   <div className="flex items-center mb-2">
-                    <MapPin className="mr-2 text-orange-600" size={16} />
-                    <span className="font-semibold text-gray-800">Dirección de entrega:</span>
+                    <MapPin className="mr-2 text-orange-600" size={14} />
+                    <span className="font-semibold text-gray-800 text-sm">Dirección de entrega:</span>
                   </div>
-                  <p className="text-sm text-gray-700">{selectedCustomer.address1}</p>
+                  <p className="text-xs text-gray-700">{selectedCustomer.address1}</p>
                   {selectedCustomer.address2 && (
-                    <p className="text-sm text-gray-700">{selectedCustomer.address2}</p>
+                    <p className="text-xs text-gray-700">{selectedCustomer.address2}</p>
                   )}
-                  <p className="text-sm text-gray-700">{selectedCustomer.city}</p>
-                  <p className="text-sm text-gray-600 mt-1">Tel: {selectedCustomer.phone}</p>
+                  <p className="text-xs text-gray-700">{selectedCustomer.city}</p>
+                  <p className="text-xs text-gray-600 mt-1">Tel: {selectedCustomer.phone}</p>
                 </div>
               )}
 
-              {/* Total y acciones */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-lg font-semibold">Total:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    ${getCartTotal().toFixed(2)}
-                  </span>
+              {/* Totales SIN IVA y CON DESCUENTOS */}
+              <div className="p-3 border-t border-gray-200 bg-gray-50">
+                <div className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-600">Subtotal:</span>
+                    <span className="font-medium">${getCartSubtotal().toFixed(2)}</span>
+                  </div>
+                  
+                  {descuento > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span>Descuento:</span>
+                      <span>-${getCartDiscount().toFixed(2)}</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex justify-between text-lg font-bold pt-1 border-t border-gray-200">
+                    <span>Total:</span>
+                    <span className="text-green-600">${getCartTotal().toFixed(2)}</span>
+                  </div>
                 </div>
-                
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setShowPayment(true)}
-                    className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition-colors font-semibold"
-                  >
-                    Procesar Pago
-                  </button>
-                  <button
-                    onClick={handleClearCart}
-                    className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                  >
-                    Limpiar Carrito
-                  </button>
-                </div>
+              </div>
+
+              {/* Botones de acción - SIEMPRE VISIBLES */}
+              <div className="p-3 bg-gray-50 space-y-2">
+                <button
+                  onClick={() => setShowPayment(true)}
+                  disabled={loading}
+                  className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 transition-colors font-semibold flex items-center justify-center text-sm disabled:opacity-50"
+                >
+                  <CreditCard className="w-4 h-4 mr-2" />
+                  Procesar Pago - ${getCartTotal().toFixed(2)}
+                </button>
+                <button
+                  onClick={handleClearCart}
+                  disabled={loading}
+                  className="w-full bg-red-500 text-white py-1 rounded-lg hover:bg-red-600 transition-colors flex items-center justify-center text-sm disabled:opacity-50"
+                >
+                  <Trash2 className="w-3 h-3 mr-2" />
+                  Limpiar Carrito
+                </button>
               </div>
             </>
           )}
@@ -728,7 +1040,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
         </div>
       )}
 
-      {/* Modal de Pago */}
+      {/* Modal de Pago MEJORADO */}
       {showPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl p-6 max-w-md w-full mx-4">
@@ -744,9 +1056,21 @@ const UnifiedPOSView = ({ apiService, user }) => {
 
             <div className="mb-6">
               <div className="bg-gray-50 p-4 rounded-lg mb-4">
-                <div className="flex justify-between font-bold text-lg">
-                  <span>Total:</span>
-                  <span>${getCartTotal().toFixed(2)}</span>
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span>Subtotal:</span>
+                    <span>${getCartSubtotal().toFixed(2)}</span>
+                  </div>
+                  {descuento > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Descuento:</span>
+                      <span>-${getCartDiscount().toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-bold text-lg border-t pt-2">
+                    <span>Total:</span>
+                    <span>${getCartTotal().toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
 

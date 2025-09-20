@@ -1,7 +1,14 @@
 // frontend/src/App.js
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
-import { GlobalStateProvider } from './context/GlobalStateContext'; // ✅ AGREGAR
+import { GlobalStateProvider } from './context/GlobalStateContext';
+// ✅ NUEVAS IMPORTACIONES
+import TableManagement from './components/TableManagement';
+import ImprovedCart from './components/ImprovedCart';
+import dataPersistence from './services/DataPersistence';
+import { usePersistentTables } from './hooks/usePersistentTables';
+
+// Importaciones existentes
 import POSView from './components/POSView';
 import UnifiedPOSView from './components/UnifiedPOSView';
 import TablesView from './components/TablesView';
@@ -17,7 +24,8 @@ import {
   Wifi,
   WifiOff,
   Users,
-  AlertTriangle
+  AlertTriangle,
+  ArrowLeft
 } from 'lucide-react';
 
 // Configuración de la API
@@ -40,7 +48,7 @@ const useApp = () => {
   return context;
 };
 
-// Servicio de API
+// Servicio de API (manteniendo tu código existente)
 class APIService {
   constructor() {
     this.token = localStorage.getItem('pos_token');
@@ -179,7 +187,7 @@ class APIService {
 // Instancia global del servicio API
 const apiService = new APIService();
 
-// Hook para conexión de red
+// Hook para conexión de red (manteniendo tu código)
 const useNetworkStatus = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [backendStatus, setBackendStatus] = useState('unknown');
@@ -214,7 +222,264 @@ const useNetworkStatus = () => {
   return { isOnline, backendStatus };
 };
 
-// Componente de Login
+// ✅ NUEVO COMPONENTE: Vista POS Mejorada
+const EnhancedPOSView = ({ apiService, user }) => {
+  const [vistaActual, setVistaActual] = useState('mesas'); // 'mesas' o 'pos'
+  const [mesaSeleccionada, setMesaSeleccionada] = useState(null);
+  const [carrito, setCarrito] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    cargarDatosIniciales();
+  }, []);
+
+  // Cargar carrito guardado al seleccionar mesa
+  useEffect(() => {
+    if (mesaSeleccionada) {
+      cargarCarritoMesa();
+    }
+  }, [mesaSeleccionada]);
+
+  const cargarDatosIniciales = async () => {
+    try {
+      setLoading(true);
+      const [menuItems, categories] = await Promise.all([
+        apiService.getMenu(),
+        apiService.getCategories()
+      ]);
+      
+      setProductos(menuItems || []);
+      setCategorias(categories || []);
+    } catch (error) {
+      console.error('Error al cargar datos:', error);
+      // Productos de ejemplo si falla la carga
+      setProductos([
+        { id: 1, nombre: 'Hamburguesa Clásica', precio: 15.99, categoria: 'Comida' },
+        { id: 2, nombre: 'Pizza Margherita', precio: 18.50, categoria: 'Comida' },
+        { id: 3, nombre: 'Coca Cola', precio: 3.50, categoria: 'Bebidas' },
+        { id: 4, nombre: 'Cerveza Corona', precio: 4.99, categoria: 'Bebidas' },
+      ]);
+      setCategorias(['Comida', 'Bebidas']);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const cargarCarritoMesa = async () => {
+    try {
+      const carritoGuardado = await dataPersistence.obtenerCarrito(mesaSeleccionada.id);
+      setCarrito(carritoGuardado);
+    } catch (error) {
+      console.error('Error al cargar carrito:', error);
+      setCarrito([]);
+    }
+  };
+
+  const handleSeleccionarMesa = (mesa) => {
+    setMesaSeleccionada(mesa);
+    setVistaActual('pos');
+  };
+
+  const handleVolverMesas = () => {
+    setVistaActual('mesas');
+    setMesaSeleccionada(null);
+    setCarrito([]);
+  };
+
+  const handleAgregarProducto = (producto) => {
+    const itemExistente = carrito.find(item => item.id === producto.id);
+    
+    if (itemExistente) {
+      handleActualizarCantidad(producto.id, itemExistente.cantidad + 1);
+    } else {
+      const nuevoItem = { ...producto, cantidad: 1 };
+      setCarrito(prev => [...prev, nuevoItem]);
+    }
+  };
+
+  const handleActualizarCantidad = (itemId, nuevaCantidad) => {
+    if (nuevaCantidad <= 0) {
+      handleEliminarItem(itemId);
+    } else {
+      setCarrito(prev => 
+        prev.map(item => 
+          item.id === itemId 
+            ? { ...item, cantidad: nuevaCantidad }
+            : item
+        )
+      );
+    }
+  };
+
+  const handleEliminarItem = (itemId) => {
+    setCarrito(prev => prev.filter(item => item.id !== itemId));
+  };
+
+  const handleLimpiarCarrito = () => {
+    setCarrito([]);
+  };
+
+  const handleProcesarPago = async (venta) => {
+    try {
+      // Intentar enviar al backend si está disponible
+      try {
+        await apiService.createSale({
+          folio: venta.folio,
+          mesa_id: venta.mesa_id,
+          productos: venta.productos,
+          subtotal: venta.subtotal,
+          descuento: venta.descuento,
+          total: venta.total,
+          usuario_id: user.id
+        });
+      } catch (backendError) {
+        console.warn('Backend no disponible, venta guardada localmente:', backendError);
+      }
+
+      alert(`¡Pago procesado exitosamente!\nFolio: ${venta.folio}\nTotal: $${venta.total.toFixed(2)}`);
+      setCarrito([]);
+      handleVolverMesas();
+      
+    } catch (error) {
+      console.error('Error al procesar pago:', error);
+      alert('Error al procesar el pago');
+    }
+  };
+
+  const productosAgrupados = productos.reduce((acc, producto) => {
+    const categoria = producto.categoria || 'Otros';
+    if (!acc[categoria]) {
+      acc[categoria] = [];
+    }
+    acc[categoria].push(producto);
+    return acc;
+  }, {});
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <span className="text-gray-600">Cargando...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (vistaActual === 'mesas') {
+    return (
+      <div className="p-6">
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+            Gestión de Mesas - POS Mejorado
+          </h2>
+          <p className="text-gray-600">
+            Selecciona una mesa para comenzar una venta con persistencia de datos
+          </p>
+        </div>
+        <TableManagement onSelectTable={handleSeleccionarMesa} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col">
+      {/* Header de la vista POS */}
+      <div className="bg-white border-b px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={handleVolverMesas}
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Volver a Mesas</span>
+            </button>
+            <div className="h-6 w-px bg-gray-300"></div>
+            <h2 className="text-xl font-bold text-gray-800">
+              Mesa {mesaSeleccionada?.numero} - POS Mejorado
+            </h2>
+          </div>
+          <div className="text-sm text-gray-600">
+            {new Date().toLocaleDateString('es-MX', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Contenido principal */}
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-6">
+        {/* Panel de productos */}
+        <div className="lg:col-span-2">
+          <div className="bg-white rounded-lg shadow h-full">
+            <div className="p-6 h-full flex flex-col">
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">
+                Menú Disponible
+              </h3>
+              
+              <div className="flex-1 overflow-y-auto space-y-6">
+                {Object.entries(productosAgrupados).map(([categoria, productosCategoria]) => (
+                  <div key={categoria}>
+                    <h4 className="text-md font-medium text-gray-700 mb-3 pb-2 border-b">
+                      {categoria}
+                    </h4>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                      {productosCategoria.map((producto) => (
+                        <button
+                          key={producto.id}
+                          onClick={() => handleAgregarProducto(producto)}
+                          className="text-left p-3 bg-gray-50 hover:bg-blue-50 rounded-lg border border-gray-200 hover:border-blue-300 transition-all"
+                        >
+                          <h5 className="font-medium text-gray-800 text-sm leading-tight">
+                            {producto.nombre}
+                          </h5>
+                          <p className="text-blue-600 font-semibold text-sm mt-1">
+                            ${producto.precio?.toFixed(2) || '0.00'}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                
+                {productos.length === 0 && (
+                  <div className="text-center py-12">
+                    <Coffee className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500">No hay productos disponibles</p>
+                    <p className="text-gray-400 text-sm">
+                      Verifica la conexión con el servidor o agrega productos al menú
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Panel del carrito mejorado */}
+        <div className="lg:col-span-1">
+          <ImprovedCart
+            cartItems={carrito}
+            onUpdateQuantity={handleActualizarCantidad}
+            onRemoveItem={handleEliminarItem}
+            onClearCart={handleLimpiarCarrito}
+            onProcessPayment={handleProcesarPago}
+            mesaId={mesaSeleccionada?.id}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Componente de Login (manteniendo tu código existente)
 const LoginScreen = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -245,8 +510,8 @@ const LoginScreen = ({ onLogin }) => {
           <div className="mx-auto w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
             <Coffee className="w-10 h-10 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">POS Moderno</h1>
-          <p className="text-gray-600">Sistema Multipunto Conectado</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">POS Mejorado</h1>
+          <p className="text-gray-600">Sistema Multipunto con Persistencia</p>
           
           <div className="mt-4 flex items-center justify-center space-x-2">
             {backendStatus === 'connected' ? (
@@ -257,7 +522,7 @@ const LoginScreen = ({ onLogin }) => {
             ) : backendStatus === 'disconnected' ? (
               <>
                 <WifiOff className="w-4 h-4 text-red-600" />
-                <span className="text-red-600 text-sm">Servidor no disponible</span>
+                <span className="text-red-600 text-sm">Servidor no disponible - Modo Offline</span>
               </>
             ) : (
               <>
@@ -284,7 +549,7 @@ const LoginScreen = ({ onLogin }) => {
               onChange={(e) => setUsername(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-              disabled={loading || backendStatus !== 'connected'}
+              disabled={loading}
             />
           </div>
           <div>
@@ -295,12 +560,12 @@ const LoginScreen = ({ onLogin }) => {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
-              disabled={loading || backendStatus !== 'connected'}
+              disabled={loading}
             />
           </div>
           <button
             type="submit"
-            disabled={loading || backendStatus !== 'connected'}
+            disabled={loading}
             className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
@@ -321,7 +586,7 @@ const LoginScreen = ({ onLogin }) => {
   );
 };
 
-// Componente de indicador de estado
+// Componente de indicador de estado (manteniendo tu código)
 const StatusIndicator = () => {
   const { isOnline, backendStatus } = useNetworkStatus();
 
@@ -332,7 +597,7 @@ const StatusIndicator = () => {
     color = 'bg-red-500';
     icon = <WifiOff className="w-4 h-4" />;
   } else if (backendStatus === 'disconnected') {
-    status = 'Servidor Offline';
+    status = 'Modo Offline';
     color = 'bg-orange-500';
     icon = <AlertTriangle className="w-4 h-4" />;
   } else if (backendStatus === 'unknown') {
@@ -353,7 +618,7 @@ const StatusIndicator = () => {
   );
 };
 
-// Componente del Header
+// Componente del Header (manteniendo tu código)
 const Header = ({ user, onLogout }) => {
   return (
     <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
@@ -361,7 +626,7 @@ const Header = ({ user, onLogout }) => {
         <div className="flex items-center space-x-4">
           <Coffee className="w-8 h-8 text-blue-600" />
           <div>
-            <h1 className="text-xl font-bold text-gray-800">POS Moderno - Conectado</h1>
+            <h1 className="text-xl font-bold text-gray-800">POS Mejorado - Persistente</h1>
             <p className="text-sm text-gray-600">
               Usuario: {user.name} ({user.role})
             </p>
@@ -380,15 +645,16 @@ const Header = ({ user, onLogout }) => {
   );
 };
 
-// Componente del Sidebar
+// Componente del Sidebar (manteniendo tu código con mejoras)
 const Sidebar = ({ currentView, setCurrentView }) => {
   const menuOptions = [
-    { id: 'pos', icon: ShoppingCart, label: 'Punto de Venta', color: 'blue' },
+    //{ id: 'pos', icon: ShoppingCart, label: 'Punto de Venta', color: 'blue' },
+    { id: 'pos-original', icon: ShoppingCart, label: 'POS Unificado', color: 'indigo' },
     { id: 'tables', icon: MapPin, label: 'Mesas', color: 'purple' },
     { id: 'menu', icon: Menu, label: 'Administrar Menú', color: 'green' },
     { id: 'sales', icon: BarChart3, label: 'Ventas del Día', color: 'orange' },
     { id: 'reports', icon: Calculator, label: 'Reportes', color: 'pink' },
-    { id: 'users', icon: Users, label: 'Usuarios', color: 'green' },
+    { id: 'users', icon: Users, label: 'Usuarios', color: 'teal' },
     { id: 'test', icon: Wifi, label: 'Pruebas', color: 'gray' }
   ];
 
@@ -419,7 +685,7 @@ const Sidebar = ({ currentView, setCurrentView }) => {
   );
 };
 
-// Vista de prueba de conexión
+// Vista de prueba de conexión (manteniendo tu código)
 const TestView = () => {
   const [testResults, setTestResults] = useState({});
   const [loading, setLoading] = useState(false);
@@ -449,13 +715,22 @@ const TestView = () => {
       results.tables = { success: false, error: error.message };
     }
 
+    // ✅ NUEVA PRUEBA: Persistencia local
+    try {
+      await dataPersistence.init();
+      const folio = await dataPersistence.obtenerSiguienteFolio();
+      results.persistence = { success: true, data: { nextFolio: folio } };
+    } catch (error) {
+      results.persistence = { success: false, error: error.message };
+    }
+
     setTestResults(results);
     setLoading(false);
   };
 
   return (
     <div className="p-6">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">Prueba de Conexión Backend</h2>
+      <h2 className="text-2xl font-bold text-gray-800 mb-6">Prueba de Conexión y Persistencia</h2>
       
       <button
         onClick={runTests}
@@ -494,13 +769,25 @@ const TestView = () => {
 const MainApp = () => {
   const [user, setUser] = useState(null);
   const [shift, setShift] = useState(null);
-  const [currentView, setCurrentView] = useState('pos');
+  const [currentView, setCurrentView] = useState('pos'); // Cambiado a 'pos' (mejorado) por defecto
 
   useEffect(() => {
     const token = localStorage.getItem('pos_token');
     if (token) {
       localStorage.removeItem('pos_token');
     }
+    
+    // ✅ NUEVO: Inicializar persistencia al cargar la app
+    const initPersistence = async () => {
+      try {
+        await dataPersistence.init();
+        console.log('✅ Sistema de persistencia inicializado');
+      } catch (error) {
+        console.error('❌ Error al inicializar persistencia:', error);
+      }
+    };
+    
+    initPersistence();
   }, []);
 
   const handleLogin = (userData, shiftData) => {
@@ -523,6 +810,8 @@ const MainApp = () => {
   const renderCurrentView = () => {
     switch (currentView) {
       case 'pos':
+        return <EnhancedPOSView apiService={apiService} user={user} />;
+      case 'pos-original':
         return <UnifiedPOSView apiService={apiService} user={user} />;
       case 'tables':
         return <TablesView apiService={apiService} user={user} />;
@@ -537,7 +826,7 @@ const MainApp = () => {
       case 'users':
         return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
       default:
-        return <UnifiedPOSView apiService={apiService} user={user} />;
+        return <EnhancedPOSView apiService={apiService} user={user} />;
     }
   };
 
