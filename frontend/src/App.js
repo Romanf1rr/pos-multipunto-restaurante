@@ -2,6 +2,8 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
 import POSView from './components/POSView';
+import TablesView from './components/TablesView';
+import MenuManagementView from './components/MenuManagementView';
 import { 
   ShoppingCart, 
   Coffee, 
@@ -123,6 +125,32 @@ class APIService {
     const response = await axios.get(`/sales/stats/summary?period=${period}`);
     return response.data.summary;
   }
+
+// Métodos para administración de menú
+async createMenuItem(itemData) {
+  const response = await axios.post('/menu/items', itemData);
+  return response.data.menuItem;
+}
+
+async updateMenuItem(itemId, itemData) {
+  const response = await axios.put(`/menu/items/${itemId}`, itemData);
+  return response.data.menuItem;
+}
+
+async deleteMenuItem(itemId) {
+  const response = await axios.delete(`/menu/items/${itemId}`);
+  return response.data;
+}
+
+async createCategory(categoryData) {
+  const response = await axios.post('/menu/categories', categoryData);
+  return response.data.category;
+}
+
+async updateCategory(categoryId, categoryData) {
+  const response = await axios.put(`/menu/categories/${categoryId}`, categoryData);
+  return response.data.category;
+}
 
   // Health check
   async healthCheck() {
@@ -344,6 +372,7 @@ const Sidebar = ({ currentView, setCurrentView }) => {
   const menuOptions = [
     { id: 'pos', icon: ShoppingCart, label: 'Punto de Venta', color: 'blue' },
     { id: 'tables', icon: MapPin, label: 'Mesas', color: 'purple' },
+    { id: 'menu', icon: Menu, label: 'Administrar Menú', color: 'green' },
     { id: 'sales', icon: BarChart3, label: 'Ventas del Día', color: 'orange' },
     { id: 'reports', icon: Calculator, label: 'Reportes', color: 'pink' },
     { id: 'users', icon: Users, label: 'Usuarios', color: 'green' },
@@ -477,23 +506,25 @@ const App = () => {
   };
 
   const renderCurrentView = () => {
-    switch (currentView) {
-      case 'pos':
-        return <POSView apiService={apiService} user={user} />;
-      case 'test':
-        return <TestView />;
-      case 'tables':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Mesas</h2><p>Vista en desarrollo...</p></div>;
-      case 'sales':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Ventas del Día</h2><p>Vista en desarrollo...</p></div>;
-      case 'reports':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Reportes</h2><p>Vista en desarrollo...</p></div>;
-      case 'users':
-        return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
-      default:
-        return <POSView apiService={apiService} user={user} />;
-    }
-  };
+  switch (currentView) {
+    case 'pos':
+      return <POSView apiService={apiService} user={user} />;
+    case 'tables':
+      return <TablesView apiService={apiService} user={user} />;
+    case 'menu':
+      return <MenuManagementView apiService={apiService} user={user} />;
+    case 'test':
+      return <TestView />;
+    case 'sales':
+      return <div className="p-6"><h2 className="text-2xl font-bold">Ventas del Día</h2><p>Vista en desarrollo...</p></div>;
+    case 'reports':
+      return <div className="p-6"><h2 className="text-2xl font-bold">Reportes</h2><p>Vista en desarrollo...</p></div>;
+    case 'users':
+      return <div className="p-6"><h2 className="text-2xl font-bold">Gestión de Usuarios</h2><p>Vista en desarrollo...</p></div>;
+    default:
+      return <POSView apiService={apiService} user={user} />;
+  }
+};
 
   if (!user) {
     return <LoginScreen onLogin={handleLogin} />;
