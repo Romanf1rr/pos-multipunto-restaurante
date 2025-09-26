@@ -9,6 +9,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
+const customersRoutes = require('./routes/customers');
 
 // Importar rutas y middleware
 const { router: authRoutes } = require('./routes/auth');

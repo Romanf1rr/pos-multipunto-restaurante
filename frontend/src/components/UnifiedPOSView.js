@@ -1,4 +1,4 @@
-// frontend/src/components/UnifiedPOSView.js - Versión completa mejorada
+// frontend/src/components/UnifiedPOSView.js - Versión completa con UTF-8 corregido
 import React, { useState, useEffect } from 'react';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { 
@@ -120,7 +120,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
           }, 100);
         }
       } else {
-        console.log('📌 Carrito actual tiene productos, no sobrescribiendo');
+        console.log('🔌 Carrito actual tiene productos, no sobrescribiendo');
         // Si hay carrito actual, asegurar que esté guardado en persistencia
         await guardarCarritoEnPersistencia(selectedTable.id, carritoActual);
       }
@@ -271,7 +271,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
   const handleTableSelect = (table) => {
     if (orderType !== 'dine-in') return;
     
-    console.log('🏪 Seleccionando mesa:', table.numero, 'Estado actual:', table.estado);
+    console.log('🪑 Seleccionando mesa:', table.numero, 'Estado actual:', table.estado);
     
     setSelectedTable(table);
     // Resetear descuentos al cambiar mesa
