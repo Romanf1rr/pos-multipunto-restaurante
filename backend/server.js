@@ -15,6 +15,7 @@ const { router: authRoutes } = require('./routes/auth');
 const salesRoutes = require('./routes/sales');
 const menuRoutes = require('./routes/menu');
 const tablesRoutes = require('./routes/tables');
+const customersRoutes = require('./routes/customers'); // ✅ AGREGAR ESTA LÍNEA
 const reportsRoutes = require('./routes/reports');
 const syncRoutes = require('./routes/sync');
 
@@ -96,6 +97,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/sales', salesRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tablesRoutes);
+app.use('/api/customers', customersRoutes); // ✅ AGREGAR ESTA LÍNEA
 app.use('/api/reports', reportsRoutes);
 app.use('/api/sync', syncRoutes);
 
@@ -125,18 +127,21 @@ app.get('/api/info', (req, res) => {
       'Base de datos SQLite',
       'API REST completa',
       'Soporte offline',
-      'Multipunto'
+      'Multipunto',
+      'Gestión de clientes' // ✅ AGREGAR ESTA LÍNEA
     ],
     endpoints: {
       auth: '/api/auth',
       sales: '/api/sales', 
       menu: '/api/menu',
       tables: '/api/tables',
+      customers: '/api/customers', // ✅ AGREGAR ESTA LÍNEA
       reports: '/api/reports',
       sync: '/api/sync'
     }
   });
 });
+
 
 // Servir archivos estáticos del frontend en producción
 if (NODE_ENV === 'production') {

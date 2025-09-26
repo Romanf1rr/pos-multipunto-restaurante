@@ -112,7 +112,7 @@ router.get('/items/:id', async (req, res) => {
   }
 });
 
-// POST /api/menu/items - Crear nuevo item (solo admin/manager)
+// POST /api/menu/items - Crear nuevo item
 router.post('/items', async (req, res) => {
   try {
     // Verificar permisos
@@ -122,7 +122,7 @@ router.post('/items', async (req, res) => {
       });
     }
     
-    const { name, description, price, cost, image, categoryId, stock } = req.body;
+    const { name, description, price, cost, image, categoryId, stock, isActive } = req.body;
     
     // Validar datos
     if (!name || !price || !categoryId) {
@@ -146,13 +146,19 @@ router.post('/items', async (req, res) => {
       cost: cost ? parseFloat(cost) : 0,
       image,
       categoryId,
-      stock: stock !== undefined ? parseInt(stock) : -1
+      stock: stock !== undefined ? parseInt(stock) : -1,
+      isActive: isActive !== undefined ? isActive : true
+    });
+    
+    // Obtener el item completo con la categoría
+    const completeItem = await MenuItem.findByPk(menuItem.id, {
+      include: [Category]
     });
     
     res.status(201).json({
       success: true,
       message: 'Item creado correctamente',
-      menuItem
+      menuItem: completeItem
     });
     
   } catch (error) {
@@ -163,7 +169,7 @@ router.post('/items', async (req, res) => {
   }
 });
 
-// PUT /api/menu/items/:id - Actualizar item (solo admin/manager)
+// PUT /api/menu/items/:id - Actualizar item
 router.put('/items/:id', async (req, res) => {
   try {
     // Verificar permisos
@@ -193,12 +199,28 @@ router.put('/items/:id', async (req, res) => {
       }
     }
     
+    // Procesar campos numéricos
+    if (updates.price !== undefined) {
+      updates.price = parseFloat(updates.price);
+    }
+    if (updates.cost !== undefined) {
+      updates.cost = parseFloat(updates.cost);
+    }
+    if (updates.stock !== undefined) {
+      updates.stock = parseInt(updates.stock);
+    }
+    
     await menuItem.update(updates);
+    
+    // Obtener el item actualizado con la categoría
+    const updatedItem = await MenuItem.findByPk(id, {
+      include: [Category]
+    });
     
     res.json({
       success: true,
       message: 'Item actualizado correctamente',
-      menuItem
+      menuItem: updatedItem
     });
     
   } catch (error) {
@@ -209,7 +231,7 @@ router.put('/items/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/menu/items/:id - Eliminar item (solo admin)
+// DELETE /api/menu/items/:id - Eliminar item
 router.delete('/items/:id', async (req, res) => {
   try {
     // Verificar permisos
@@ -244,7 +266,7 @@ router.delete('/items/:id', async (req, res) => {
   }
 });
 
-// POST /api/menu/categories - Crear nueva categoría (solo admin/manager)
+// POST /api/menu/categories - Crear nueva categoría
 router.post('/categories', async (req, res) => {
   try {
     // Verificar permisos
@@ -283,7 +305,7 @@ router.post('/categories', async (req, res) => {
   }
 });
 
-// PUT /api/menu/categories/:id - Actualizar categoría (solo admin/manager)
+// PUT /api/menu/categories/:id - Actualizar categoría
 router.put('/categories/:id', async (req, res) => {
   try {
     // Verificar permisos

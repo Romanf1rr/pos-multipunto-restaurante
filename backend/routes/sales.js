@@ -1,9 +1,9 @@
 // backend/routes/sales.js
 const express = require('express');
 const { Op } = require('sequelize');
-const { models } = require('../database/init');
+const { models, sequelize } = require('../database/init');
 const { authenticateToken } = require('./auth');
-const { Sale, SaleItem, MenuItem, User, Table } = models;
+const { Sale, SaleItem, MenuItem, User, Table, Customer } = models;
 
 const router = express.Router();
 
@@ -12,10 +12,19 @@ router.use(authenticateToken);
 
 // POST /api/sales - Crear nueva venta
 router.post('/', async (req, res) => {
-  const transaction = await models.sequelize.transaction();
+  const transaction = await sequelize.transaction();
   
   try {
-    const { items, tableId, paymentMethod, notes, deviceId } = req.body;
+    const { 
+      items, 
+      tableId, 
+      customerId, 
+      orderType = 'dine-in', // 'dine-in', 'takeaway', 'delivery'
+      paymentMethod, 
+      notes, 
+      deviceId,
+      deliveryFee = 0
+    } = req.body;
     
     // Validar datos de entrada
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -23,6 +32,46 @@ router.post('/', async (req, res) => {
       return res.status(400).json({
         error: 'Los items de la venta son requeridos'
       });
+    }
+    
+    // Validaciones según tipo de pedido
+    if (orderType === 'dine-in' && !tableId) {
+      await transaction.rollback();
+      return res.status(400).json({
+        error: 'Mesa es requerida para pedidos en restaurante'
+      });
+    }
+    
+    if (orderType === 'delivery' && !customerId) {
+      await transaction.rollback();
+      return res.status(400).json({
+        error: 'Cliente es requerido para pedidos a domicilio'
+      });
+    }
+    
+    // Validar que la mesa exista (si aplica)
+    if (tableId) {
+      const table = await Table.findByPk(tableId);
+      if (!table) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: 'Mesa no encontrada'
+        });
+      }
+    }
+    
+    // Validar que el cliente exista (si aplica)
+    let customer = null;
+    let deliveryAddress = null;
+    if (customerId) {
+      customer = await Customer.findByPk(customerId);
+      if (!customer) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: 'Cliente no encontrado'
+        });
+      }
+      deliveryAddress = `${customer.address1}${customer.address2 ? ', ' + customer.address2 : ''}, ${customer.city}`;
     }
     
     // Calcular totales
@@ -61,18 +110,23 @@ router.post('/', async (req, res) => {
     // Calcular impuestos (configurable)
     const taxRate = parseFloat(process.env.TAX_RATE || '0');
     const tax = subtotal * taxRate;
-    const total = subtotal + tax;
+    const deliveryFeeAmount = parseFloat(deliveryFee || 0);
+    const total = subtotal + tax + deliveryFeeAmount;
     
     // Crear la venta
     const sale = await Sale.create({
       subtotal: subtotal.toFixed(2),
       tax: tax.toFixed(2),
+      deliveryFee: deliveryFeeAmount.toFixed(2),
       total: total.toFixed(2),
       paymentMethod: paymentMethod || 'cash',
+      orderType,
       notes,
       tableId: tableId || null,
+      customerId: customerId || null,
       userId: req.user.userId,
       deviceId: deviceId || null,
+      deliveryAddress,
       synced: false
     }, { transaction });
     
@@ -93,13 +147,21 @@ router.post('/', async (req, res) => {
     }
     
     // Actualizar estado de mesa si se especifica
-    if (tableId) {
+    if (tableId && orderType === 'dine-in') {
       const table = await Table.findByPk(tableId);
       if (table) {
         await table.update({
-          status: 'available'
+          status: 'occupied'
         }, { transaction });
       }
+    }
+    
+    // Actualizar estadísticas del cliente
+    if (customer) {
+      await customer.update({
+        lastOrderDate: new Date(),
+        totalOrders: customer.totalOrders + 1
+      }, { transaction });
     }
     
     await transaction.commit();
@@ -118,6 +180,10 @@ router.post('/', async (req, res) => {
         {
           model: Table,
           attributes: ['id', 'number']
+        },
+        {
+          model: Customer,
+          attributes: ['id', 'name', 'phone', 'address1', 'address2', 'city']
         }
       ]
     });
@@ -130,10 +196,10 @@ router.post('/', async (req, res) => {
       });
       
       // Emitir cambio de estado de mesa
-      if (tableId) {
+      if (tableId && orderType === 'dine-in') {
         req.io.emit('table-updated', {
           tableId,
-          status: 'available',
+          status: 'occupied',
           timestamp: new Date().toISOString()
         });
       }
@@ -164,6 +230,8 @@ router.get('/', async (req, res) => {
       endDate, 
       userId, 
       tableId,
+      customerId,
+      orderType,
       status = 'completed'
     } = req.query;
     
@@ -194,6 +262,14 @@ router.get('/', async (req, res) => {
       where.tableId = tableId;
     }
     
+    if (customerId) {
+      where.customerId = customerId;
+    }
+    
+    if (orderType) {
+      where.orderType = orderType;
+    }
+    
     // Si no es admin, solo mostrar sus propias ventas
     if (req.user.role !== 'admin' && req.user.role !== 'manager') {
       where.userId = req.user.userId;
@@ -213,6 +289,10 @@ router.get('/', async (req, res) => {
         {
           model: Table,
           attributes: ['id', 'number']
+        },
+        {
+          model: Customer,
+          attributes: ['id', 'name', 'phone', 'address1', 'address2', 'city']
         }
       ],
       order: [['createdAt', 'DESC']],
@@ -238,6 +318,9 @@ router.get('/', async (req, res) => {
     });
   }
 });
+
+
+module.exports = router;
 
 // GET /api/sales/today - Obtener ventas de hoy
 router.get('/today', async (req, res) => {
@@ -346,7 +429,7 @@ router.get('/:id', async (req, res) => {
 
 // PUT /api/sales/:id/cancel - Cancelar venta
 router.put('/:id/cancel', async (req, res) => {
-  const transaction = await models.sequelize.transaction();
+  const transaction = await sequelize.transaction(); // ✅ Usar sequelize directamente
   
   try {
     const { id } = req.params;

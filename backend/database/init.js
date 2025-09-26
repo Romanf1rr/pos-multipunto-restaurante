@@ -70,6 +70,61 @@ const User = sequelize.define('User', {
   timestamps: true
 });
 
+// Modelo de Clientes
+const Customer = sequelize.define('Customer', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: false,
+    unique: true,
+    validate: {
+      len: [10, 20]
+    }
+  },
+  name: {
+    type: DataTypes.STRING(100),
+    allowNull: false,
+    validate: {
+      len: [2, 100]
+    }
+  },
+  address1: {
+    type: DataTypes.STRING(255),
+    allowNull: false
+  },
+  address2: {
+    type: DataTypes.STRING(255)
+  },
+  city: {
+    type: DataTypes.STRING(100),
+    defaultValue: 'Ciudad Guzmán'
+  },
+  email: {
+    type: DataTypes.STRING
+  },
+  notes: {
+    type: DataTypes.TEXT
+  },
+  isActive: {
+    type: DataTypes.BOOLEAN,
+    defaultValue: true
+  },
+  lastOrderDate: {
+    type: DataTypes.DATE
+  },
+  totalOrders: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  }
+}, {
+  tableName: 'customers',
+  timestamps: true
+});
+
 // Modelo de Categorías de Menú
 const Category = sequelize.define('Category', {
   id: {
@@ -205,6 +260,10 @@ const Sale = sequelize.define('Sale', {
     type: DataTypes.ENUM('cash', 'card', 'transfer', 'mixed'),
     defaultValue: 'cash'
   },
+  orderType: {
+    type: DataTypes.ENUM('dine-in', 'takeaway', 'delivery'),
+    defaultValue: 'dine-in'
+  },
   status: {
     type: DataTypes.ENUM('pending', 'completed', 'cancelled', 'refunded'),
     defaultValue: 'completed'
@@ -216,6 +275,13 @@ const Sale = sequelize.define('Sale', {
     type: DataTypes.INTEGER,
     references: {
       model: Table,
+      key: 'id'
+    }
+  },
+  customerId: {
+    type: DataTypes.INTEGER,
+    references: {
+      model: Customer,
       key: 'id'
     }
   },
@@ -235,6 +301,13 @@ const Sale = sequelize.define('Sale', {
   },
   syncedAt: {
     type: DataTypes.DATE
+  },
+  deliveryAddress: {
+    type: DataTypes.TEXT
+  },
+  deliveryFee: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
   }
 }, {
   tableName: 'sales',
@@ -342,6 +415,9 @@ function setupAssociations() {
   User.hasMany(Sale, { foreignKey: 'userId' });
   User.hasMany(Shift, { foreignKey: 'userId' });
   
+  // Customer associations
+  Customer.hasMany(Sale, { foreignKey: 'customerId' });
+  
   // Category associations
   Category.hasMany(MenuItem, { foreignKey: 'categoryId' });
   
@@ -355,6 +431,7 @@ function setupAssociations() {
   // Sale associations
   Sale.belongsTo(User, { foreignKey: 'userId' });
   Sale.belongsTo(Table, { foreignKey: 'tableId' });
+  Sale.belongsTo(Customer, { foreignKey: 'customerId' });
   Sale.hasMany(SaleItem, { foreignKey: 'saleId', onDelete: 'CASCADE' });
   
   // SaleItem associations
@@ -375,11 +452,19 @@ async function initDatabase() {
     // Configurar asociaciones
     setupAssociations();
     
-    // Sincronizar modelos (crear tablas)
-    await sequelize.sync({ 
-      force: process.env.DB_FORCE_SYNC === 'true',
-      alter: process.env.NODE_ENV === 'development'
-    });
+    // ARREGLO: Usar sync más seguro
+    const syncOptions = {
+      force: process.env.DB_FORCE_SYNC === 'true' // Solo resetea si está explícitamente configurado
+      // Removemos alter: true que causaba el problema
+    };
+    
+    // Si hay problemas con la base de datos existente, usar force
+    if (process.env.NODE_ENV === 'development' && process.env.DB_RESET === 'true') {
+      syncOptions.force = true;
+      console.log('🔄 Modo desarrollo: Reseteando base de datos...');
+    }
+    
+    await sequelize.sync(syncOptions);
     
     console.log('✅ Modelos sincronizados correctamente');
     
@@ -436,6 +521,35 @@ async function seedInitialData() {
       
       await User.bulkCreate(users);
       
+      // Crear clientes iniciales
+      const customers = [
+        {
+          phone: '3331234567',
+          name: 'Juan Pérez',
+          address1: 'Av. Principal 123',
+          address2: 'Col. Centro',
+          city: 'Ciudad Guzmán',
+          email: 'juan@email.com'
+        },
+        {
+          phone: '3339876543',
+          name: 'María García',
+          address1: 'Calle Morelos 456',
+          address2: 'Col. Jardines',
+          city: 'Ciudad Guzmán',
+          email: 'maria@email.com'
+        },
+        {
+          phone: '3335555555',
+          name: 'Carlos López',
+          address1: 'Av. Revolución 789',
+          address2: '',
+          city: 'Ciudad Guzmán'
+        }
+      ];
+      
+      await Customer.bulkCreate(customers);
+      
       // Crear categorías
       const categories = [
         { name: 'Platillos', description: 'Comida principal', sortOrder: 1 },
@@ -488,6 +602,7 @@ module.exports = {
   initDatabase,
   models: {
     User,
+    Customer,
     Category,
     MenuItem,
     Table,
