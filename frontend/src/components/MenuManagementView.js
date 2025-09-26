@@ -1,4 +1,3 @@
-// frontend/src/components/MenuManagementView.js
 import React, { useState, useEffect } from 'react';
 import { 
   Plus, Edit3, Trash2, Save, X, AlertTriangle, 
@@ -241,6 +240,7 @@ const MenuManagementView = ({ apiService, user }) => {
       sortOrder: editingCategory?.sortOrder || 0
     });
     const [saving, setSaving] = useState(false);
+    const [categoryError, setCategoryError] = useState('');
 
     const handleSubmit = async (e) => {
       e.preventDefault();
@@ -256,11 +256,11 @@ const MenuManagementView = ({ apiService, user }) => {
           const newCategory = await apiService.createCategory(formData);
           setCategories([...categories, newCategory]);
         }
-        
         setShowCategoryModal(false);
         setEditingCategory(null);
+        setCategoryError('');
       } catch (error) {
-        setError('Error guardando categoría: ' + error.message);
+        setCategoryError(error.message); // Mostrar el mensaje del backend tal cual
       } finally {
         setSaving(false);
       }
@@ -277,12 +277,20 @@ const MenuManagementView = ({ apiService, user }) => {
               onClick={() => {
                 setShowCategoryModal(false);
                 setEditingCategory(null);
+                setCategoryError('');
               }}
               className="p-2 hover:bg-gray-100 rounded-full"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
+
+          {categoryError && (
+            <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg flex items-center">
+              <AlertTriangle className="w-4 h-4 mr-2" />
+              {categoryError}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -322,6 +330,7 @@ const MenuManagementView = ({ apiService, user }) => {
                 onClick={() => {
                   setShowCategoryModal(false);
                   setEditingCategory(null);
+                  setCategoryError('');
                 }}
                 className="flex-1 py-2 px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
               >

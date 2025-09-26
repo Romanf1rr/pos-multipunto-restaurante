@@ -1,8 +1,7 @@
 // backend/routes/menu.js
 const express = require('express');
-const { models } = require('../database/init');
+const { MenuItem, Category } = require('../database/init');
 const { authenticateToken } = require('./auth');
-const { MenuItem, Category } = models;
 
 const router = express.Router();
 

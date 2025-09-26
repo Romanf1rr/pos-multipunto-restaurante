@@ -1,4 +1,3 @@
-// backend/database/init.js
 const { Sequelize, DataTypes } = require('sequelize');
 const path = require('path');
 const fs = require('fs');
@@ -600,14 +599,12 @@ async function seedInitialData() {
 module.exports = {
   sequelize,
   initDatabase,
-  models: {
-    User,
-    Customer,
-    Category,
-    MenuItem,
-    Table,
-    Sale,
-    SaleItem,
-    Shift
-  }
+  User,
+  Customer,
+  Category,
+  MenuItem,
+  Table,
+  Sale,
+  SaleItem,
+  Shift
 };

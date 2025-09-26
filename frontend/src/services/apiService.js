@@ -1,4 +1,3 @@
-// frontend/src/services/apiService.js
 class APIService {
   constructor() {
     this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
@@ -15,7 +14,7 @@ class APIService {
     try {
       const response = await fetch(url, { headers, ...options });
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || `HTTP ${response.status}`);
       }
@@ -32,7 +31,7 @@ class APIService {
       method: 'POST',
       body: JSON.stringify({ username, password, deviceId })
     });
-    
+
     if (response.success) {
       this.token = response.token;
       localStorage.setItem('pos_token', this.token);
@@ -49,9 +48,8 @@ class APIService {
   // Menú y Categorías
   async getMenu() {
     const response = await this.request('/api/menu');
-    const menuItems = response.menu || [];
-    
-    // Transformar el formato del backend al formato que espera el frontend
+    const menuItems = response.menuItems || response.menu || [];
+    // El backend responde { menuItems: [...] }
     return menuItems.map(item => ({
       id: item.id,
       name: item.name,
@@ -67,25 +65,12 @@ class APIService {
   }
 
   async getCategories() {
-    // Obtener categorías desde el endpoint de menú ya que /api/categories no existe
-    const response = await this.request('/api/menu');
-    const menuItems = response.menu || [];
-    
-    // Extraer categorías únicas de los productos del menú
-    const categoriesMap = new Map();
-    menuItems.forEach(item => {
-      if (item.Category && !categoriesMap.has(item.Category.id)) {
-        categoriesMap.set(item.Category.id, {
-          id: item.Category.id,
-          name: item.Category.name,
-          description: item.Category.description,
-          sortOrder: item.Category.sortOrder
-        });
-      }
-    });
-    
-    // Convertir Map a array y ordenar por sortOrder
-    return Array.from(categoriesMap.values()).sort((a, b) => a.sortOrder - b.sortOrder);
+    // Ahora hay endpoint propio de categorías
+    const response = await this.request('/api/menu/categories');
+    const categories = response.categories || [];
+    return categories
+      .filter(cat => cat && typeof cat.id !== "undefined")
+      .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
   // Mesas
@@ -130,7 +115,7 @@ class APIService {
 
   // Métodos para MenuManagementView
   async createMenuItem(itemData) {
-    const response = await this.request('/api/menu', {
+    const response = await this.request('/api/menu/items', {
       method: 'POST',
       body: JSON.stringify(itemData)
     });
@@ -138,19 +123,19 @@ class APIService {
   }
 
   async updateMenuItem(id, itemData) {
-    const response = await this.request(`/api/menu/${id}`, {
-      method: 'PATCH',
+    const response = await this.request(`/api/menu/items/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(itemData)
     });
     return response.menuItem;
   }
 
   async deleteMenuItem(id) {
-    return await this.request(`/api/menu/${id}`, { method: 'DELETE' });
+    return await this.request(`/api/menu/items/${id}`, { method: 'DELETE' });
   }
 
   async createCategory(categoryData) {
-    const response = await this.request('/api/categories', {
+    const response = await this.request('/api/menu/categories', {
       method: 'POST',
       body: JSON.stringify(categoryData)
     });
@@ -158,8 +143,8 @@ class APIService {
   }
 
   async updateCategory(id, categoryData) {
-    const response = await this.request(`/api/categories/${id}`, {
-      method: 'PATCH',
+    const response = await this.request(`/api/menu/categories/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(categoryData)
     });
     return response.category;

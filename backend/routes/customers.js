@@ -1,9 +1,8 @@
 // backend/routes/customers.js
 const express = require('express');
 const { Op } = require('sequelize');
-const { models } = require('../database/init');
+const { Customer, Sale, SaleItem, MenuItem, User } = require('../database/init');
 const { authenticateToken } = require('./auth');
-const { Customer } = models;
 
 const router = express.Router();
 

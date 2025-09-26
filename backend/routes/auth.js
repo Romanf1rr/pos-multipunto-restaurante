@@ -1,9 +1,7 @@
-// backend/routes/auth.js
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { models } = require('../database/init');
-const { User, Shift } = models;
+const { User, Shift, Sale } = require('../database/init');
 
 const router = express.Router();
 
@@ -11,11 +9,11 @@ const router = express.Router();
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
-  
+
   if (!token) {
     return res.status(401).json({ error: 'Token de acceso requerido' });
   }
-  
+
   jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
     if (err) {
       return res.status(403).json({ error: 'Token inválido' });
@@ -29,14 +27,14 @@ const authenticateToken = (req, res, next) => {
 router.post('/login', async (req, res) => {
   try {
     const { username, password, deviceId } = req.body;
-    
+
     // Validar datos de entrada
     if (!username || !password) {
       return res.status(400).json({
         error: 'Username y password son requeridos'
       });
     }
-    
+
     // Buscar usuario
     const user = await User.findOne({
       where: { 
@@ -44,13 +42,13 @@ router.post('/login', async (req, res) => {
         isActive: true
       }
     });
-    
+
     if (!user) {
       return res.status(401).json({
         error: 'Credenciales inválidas'
       });
     }
-    
+
     // Verificar contraseña
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
@@ -58,13 +56,13 @@ router.post('/login', async (req, res) => {
         error: 'Credenciales inválidas'
       });
     }
-    
+
     // Actualizar último login y dispositivo
     await user.update({
       lastLogin: new Date(),
       deviceId: deviceId || null
     });
-    
+
     // Verificar si hay un turno activo
     let activeShift = await Shift.findOne({
       where: {
@@ -72,7 +70,7 @@ router.post('/login', async (req, res) => {
         status: 'active'
       }
     });
-    
+
     // Si no hay turno activo, crear uno nuevo
     if (!activeShift) {
       activeShift = await Shift.create({
@@ -82,7 +80,7 @@ router.post('/login', async (req, res) => {
         status: 'active'
       });
     }
-    
+
     // Generar JWT
     const token = jwt.sign(
       { 
@@ -94,7 +92,7 @@ router.post('/login', async (req, res) => {
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
-    
+
     // Respuesta exitosa
     res.json({
       success: true,
@@ -112,7 +110,7 @@ router.post('/login', async (req, res) => {
         status: activeShift.status
       }
     });
-    
+
     // Emitir evento de conexión via Socket.io
     if (req.io) {
       req.io.emit('user-connected', {
@@ -122,7 +120,7 @@ router.post('/login', async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-    
+
   } catch (error) {
     console.error('Error en login:', error);
     res.status(500).json({
@@ -135,7 +133,7 @@ router.post('/login', async (req, res) => {
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
     const { closeShift } = req.body;
-    
+
     // Si se solicita cerrar turno
     if (closeShift) {
       const shift = await Shift.findOne({
@@ -144,10 +142,9 @@ router.post('/logout', authenticateToken, async (req, res) => {
           status: 'active'
         }
       });
-      
+
       if (shift) {
         // Calcular totales del turno
-        const { Sale } = models;
         const shiftSales = await Sale.findAll({
           where: {
             userId: req.user.userId,
@@ -156,10 +153,10 @@ router.post('/logout', authenticateToken, async (req, res) => {
             }
           }
         });
-        
+
         const totalSales = shiftSales.reduce((sum, sale) => sum + parseFloat(sale.total), 0);
         const totalTransactions = shiftSales.length;
-        
+
         await shift.update({
           endTime: new Date(),
           totalSales,
@@ -168,7 +165,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
         });
       }
     }
-    
+
     // Emitir evento de desconexión
     if (req.io) {
       req.io.emit('user-disconnected', {
@@ -177,12 +174,12 @@ router.post('/logout', authenticateToken, async (req, res) => {
         timestamp: new Date().toISOString()
       });
     }
-    
+
     res.json({
       success: true,
       message: 'Sesión cerrada correctamente'
     });
-    
+
   } catch (error) {
     console.error('Error en logout:', error);
     res.status(500).json({
@@ -197,13 +194,13 @@ router.get('/profile', authenticateToken, async (req, res) => {
     const user = await User.findByPk(req.user.userId, {
       attributes: { exclude: ['password'] }
     });
-    
+
     if (!user) {
       return res.status(404).json({
         error: 'Usuario no encontrado'
       });
     }
-    
+
     // Obtener turno activo
     const activeShift = await Shift.findOne({
       where: {
@@ -211,7 +208,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         status: 'active'
       }
     });
-    
+
     res.json({
       success: true,
       user: {
@@ -230,7 +227,7 @@ router.get('/profile', authenticateToken, async (req, res) => {
         totalTransactions: activeShift.totalTransactions
       } : null
     });
-    
+
   } catch (error) {
     console.error('Error obteniendo perfil:', error);
     res.status(500).json({
@@ -243,23 +240,23 @@ router.get('/profile', authenticateToken, async (req, res) => {
 router.put('/change-password', authenticateToken, async (req, res) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    
+
     // Validar datos
     if (!currentPassword || !newPassword) {
       return res.status(400).json({
         error: 'Contraseña actual y nueva son requeridas'
       });
     }
-    
+
     if (newPassword.length < 6) {
       return res.status(400).json({
         error: 'La nueva contraseña debe tener al menos 6 caracteres'
       });
     }
-    
+
     // Buscar usuario
     const user = await User.findByPk(req.user.userId);
-    
+
     // Verificar contraseña actual
     const validPassword = await bcrypt.compare(currentPassword, user.password);
     if (!validPassword) {
@@ -267,20 +264,20 @@ router.put('/change-password', authenticateToken, async (req, res) => {
         error: 'Contraseña actual incorrecta'
       });
     }
-    
+
     // Encriptar nueva contraseña
     const hashedPassword = await bcrypt.hash(newPassword, 10);
-    
+
     // Actualizar contraseña
     await user.update({
       password: hashedPassword
     });
-    
+
     res.json({
       success: true,
       message: 'Contraseña actualizada correctamente'
     });
-    
+
   } catch (error) {
     console.error('Error cambiando contraseña:', error);
     res.status(500).json({
@@ -298,17 +295,17 @@ router.get('/users', authenticateToken, async (req, res) => {
         error: 'Acceso denegado'
       });
     }
-    
+
     const users = await User.findAll({
       attributes: { exclude: ['password'] },
       order: [['createdAt', 'DESC']]
     });
-    
+
     res.json({
       success: true,
       users
     });
-    
+
   } catch (error) {
     console.error('Error obteniendo usuarios:', error);
     res.status(500).json({
@@ -326,16 +323,16 @@ router.post('/users', authenticateToken, async (req, res) => {
         error: 'Acceso denegado'
       });
     }
-    
+
     const { username, password, name, role } = req.body;
-    
+
     // Validar datos
     if (!username || !password || !name || !role) {
       return res.status(400).json({
         error: 'Todos los campos son requeridos'
       });
     }
-    
+
     // Verificar que el username no exista
     const existingUser = await User.findOne({ where: { username } });
     if (existingUser) {
@@ -343,10 +340,10 @@ router.post('/users', authenticateToken, async (req, res) => {
         error: 'El nombre de usuario ya existe'
       });
     }
-    
+
     // Encriptar contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     // Crear usuario
     const newUser = await User.create({
       username,
@@ -354,7 +351,7 @@ router.post('/users', authenticateToken, async (req, res) => {
       name,
       role
     });
-    
+
     res.status(201).json({
       success: true,
       message: 'Usuario creado correctamente',
@@ -365,7 +362,7 @@ router.post('/users', authenticateToken, async (req, res) => {
         role: newUser.role
       }
     });
-    
+
   } catch (error) {
     console.error('Error creando usuario:', error);
     res.status(500).json({

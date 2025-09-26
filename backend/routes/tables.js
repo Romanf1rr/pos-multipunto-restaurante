@@ -1,8 +1,7 @@
 // backend/routes/tables.js
 const express = require('express');
-const { models } = require('../database/init');
+const { Table, Sale } = require('../database/init');
 const { authenticateToken } = require('./auth');
-const { Table, Sale } = models;
 const { Op } = require('sequelize');
 
 const router = express.Router();

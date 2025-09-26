@@ -9,7 +9,7 @@ const socketIo = require('socket.io');
 const path = require('path');
 const fs = require('fs');
 require('dotenv').config();
-const customersRoutes = require('./routes/customers');
+const categoriesRoutes = require('./routes/categories');
 
 // Importar rutas y middleware
 const { router: authRoutes } = require('./routes/auth');
@@ -57,15 +57,15 @@ app.use(morgan(NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+
+
 // Configurar CORS
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3000'];
-    
-    // Permitir requests sin origin (mobile apps, postman, etc.)
+    const allowedOrigins = ['http://localhost:3000']; // Agrega más si necesitas: ['http://localhost:3000', 'http://localhost:4200']
+    // Permitir requests sin origin (postman, mobile, etc.)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+    if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
       callback(new Error('No permitido por CORS'));
@@ -101,6 +101,7 @@ app.use('/api/tables', tablesRoutes);
 app.use('/api/customers', customersRoutes); // ✅ AGREGAR ESTA LÍNEA
 app.use('/api/reports', reportsRoutes);
 app.use('/api/sync', syncRoutes);
+app.use('/api/categories', categoriesRoutes);
 
 // Ruta de salud del servidor
 app.get('/api/health', (req, res) => {

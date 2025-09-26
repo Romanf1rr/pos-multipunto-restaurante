@@ -6,6 +6,7 @@ import { GlobalStateProvider } from './context/GlobalStateContext';
 import apiService from './services/apiService';
 import UnifiedPOSView from './components/UnifiedPOSView';
 import MenuManagementView from './components/MenuManagementView';
+import InventarioView from './components/Inventario/InventarioView';
 
 // Componente de Login
 const LoginScreen = ({ onLogin }) => {
@@ -94,7 +95,10 @@ const LoginScreen = ({ onLogin }) => {
 const Sidebar = ({ currentView, setCurrentView, user }) => {
   const menuOptions = [
     { id: 'pos', label: 'POS Unificado', icon: '🛒' },
-    ...(user.role === 'admin' ? [{ id: 'menu', label: 'Gestión Menú', icon: '📋' }] : [])
+    ...(user.role === 'admin' ? [
+      { id: 'menu', label: 'Gestión Menú', icon: '📋' },
+      { id: 'inventario', label: 'Gestión Inventario', icon: '📦' } // <-- AGREGADO INVENTARIO
+    ] : [])
   ];
 
   return (
@@ -170,16 +174,21 @@ const MainApp = () => {
     setCurrentView('pos');
   };
 
-  const renderCurrentView = () => {
-    switch (currentView) {
-      case 'pos':
-        return <UnifiedPOSView apiService={apiService} user={user} />;
-      case 'menu':
-        return <MenuManagementView apiService={apiService} user={user} />;
-      default:
-        return <UnifiedPOSView apiService={apiService} user={user} />;
-    }
-  };
+
+
+// ...
+const renderCurrentView = () => {
+  switch (currentView) {
+    case 'pos':
+      return <UnifiedPOSView apiService={apiService} user={user} />;
+    case 'menu':
+      return <MenuManagementView apiService={apiService} user={user} />;
+    case 'inventario':
+      return <InventarioView />;
+    default:
+      return <UnifiedPOSView apiService={apiService} user={user} />;
+  }
+};
 
   if (!user) {
     return <LoginScreen onLogin={handleLogin} />;

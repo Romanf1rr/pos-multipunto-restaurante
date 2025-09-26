@@ -1,9 +1,8 @@
 // backend/routes/sync.js
 const express = require('express');
 const { Op } = require('sequelize');
-const { models } = require('../database/init');
+const { Sale, SaleItem, MenuItem, User, Table, sequelize } = require('../database/init');
 const { authenticateToken } = require('./auth');
-const { Sale, SaleItem, MenuItem, User, Table } = models;
 
 const router = express.Router();
 
