@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from "react";
 import inventarioService from "../../services/inventarioService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import logoIng360 from "../../assets/logo-ingenieria360.png"; // Ajusta la ruta si es necesario
 
 
 // Componente para el formulario/modal de crear/editar producto
@@ -111,8 +114,6 @@ const MovimientoForm = ({ open, onClose, onSave, producto }) => {
   );
 };
 
-
-
 const IndicadorStockBajo = ({ cantidad, cantidadMinima }) => {
   if (Number(cantidad) <= Number(cantidadMinima || 0)) {
     return (
@@ -139,6 +140,9 @@ const InventarioView = () => {
   const [editData, setEditData] = useState(null);
   const [showMovimiento, setShowMovimiento] = useState(false);
   const [productoMovimiento, setProductoMovimiento] = useState(null);
+
+  // NUEVO: Modal de reporte
+  const [showReporte, setShowReporte] = useState(false);
 
   useEffect(() => {
     fetchProductos();
@@ -190,20 +194,94 @@ const InventarioView = () => {
     fetchProductos();
   };
 
+  // Botón para abrir el modal de reporte
+  const handleReporte = () => setShowReporte(true);
+
+  // Botón para cerrar el modal
+  const handleCerrarReporte = () => setShowReporte(false);
+
+
+
+const handleGenerarPDF = () => {
+  const doc = new jsPDF();
+
+  // LOGO en la esquina superior derecha
+  const logoWidth = 40; // px
+  const logoHeight = 16; // px
+  // Coloca el logo: x = ancho - margen - logoWidth, y = pequeño margen
+  doc.addImage(logoIng360, "PNG", doc.internal.pageSize.getWidth() - logoWidth - 10, 6, logoWidth, logoHeight);
+
+  // TITULO
+  doc.setFontSize(16);
+  doc.setTextColor(40, 40, 40);
+  doc.text("Reporte de Inventario", 14, 28);
+
+  // RESUMEN
+  const totalProductos = productos.length;
+  const totalStockBajo = productos.filter(p => Number(p.cantidad) <= Number(p.cantidadMinima || 0)).length;
+  const fechaReporte = new Date().toLocaleString();
+
+  doc.setFontSize(11);
+  doc.text(
+    `Fecha reporte: ${fechaReporte}
+Total productos: ${totalProductos}
+Productos con stock bajo: ${totalStockBajo}`,
+    14,
+    36
+  );
+
+  // TABLA DE PRODUCTOS
+  autoTable(doc, {
+    startY: 46,
+    head: [["Nombre", "Categoría", "Cantidad", "Unidad", "Mínima", "Actualización"]],
+    body: productos.map(prod => [
+      prod.nombre,
+      prod.categoria,
+      prod.cantidad,
+      prod.unidad,
+      prod.cantidadMinima,
+      prod.ultima_actualizacion ? new Date(prod.ultima_actualizacion).toLocaleString() : ""
+    ]),
+    theme: "grid",
+    styles: { fontSize: 10, cellPadding: 3 },
+    headStyles: { fillColor: [41, 128, 185] },
+    alternateRowStyles: { fillColor: [240, 240, 240] },
+    didDrawPage: (data) => {
+      // Logo en cada página
+      doc.addImage(logoIng360, "PNG", doc.internal.pageSize.getWidth() - logoWidth - 10, 6, logoWidth, logoHeight);
+      // Puedes agregar pie de página u otros elementos aquí si deseas
+    }
+  });
+
+  doc.save("reporte_inventario.pdf");
+};
+
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         <span role="img" aria-label="box">📦</span>
         Gestión de Inventario
       </h2>
-      <div className="mb-6 flex justify-end">
-  <button 
-    className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-bold flex items-center gap-2 shadow"
-    onClick={handleCreate} // <-- Aquí va, ¡fuera del contenido!
-  >
-    <span className="text-lg">+</span> Agregar producto
-  </button>
-</div>
+      <div className="mb-6 flex flex-wrap gap-4 justify-end">
+        <button 
+          className="bg-blue-600 hover:bg-blue-700 transition text-white px-4 py-2 rounded font-bold flex items-center gap-2 shadow"
+          onClick={handleCreate}
+        >
+          <span className="text-lg">+</span> Agregar producto
+        </button>
+        <button
+          className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded font-bold flex items-center gap-2 shadow"
+          onClick={handleReporte}
+        >
+          <span role="img" aria-label="report">📊</span> Generar reporte
+        </button>
+        <button
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-bold flex items-center gap-2 shadow"
+          onClick={handleGenerarPDF}
+        >
+          <span role="img" aria-label="pdf">📝</span> Descargar PDF
+        </button>
+      </div>
       {loading && <div>Cargando inventario...</div>}
       {!loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-7">
@@ -289,6 +367,57 @@ const InventarioView = () => {
         onSave={handleRegistrarMovimiento}
         producto={productoMovimiento}
       />
+
+      {/* Modal de reporte */}
+      {showReporte && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg shadow-xl p-8 max-w-2xl w-full">
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <span role="img" aria-label="report">📊</span> Reporte de Inventario
+            </h3>
+            <div className="overflow-x-auto mb-4">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr>
+                    <th className="px-2 py-1 font-bold">Nombre</th>
+                    <th className="px-2 py-1 font-bold">Categoría</th>
+                    <th className="px-2 py-1 font-bold">Cantidad</th>
+                    <th className="px-2 py-1 font-bold">Unidad</th>
+                    <th className="px-2 py-1 font-bold">Mínima</th>
+                    <th className="px-2 py-1 font-bold">Actualización</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {productos.map(prod => (
+                    <tr key={prod.id}>
+                      <td className="px-2 py-1">{prod.nombre}</td>
+                      <td className="px-2 py-1">{prod.categoria}</td>
+                      <td className="px-2 py-1">{prod.cantidad}</td>
+                      <td className="px-2 py-1">{prod.unidad}</td>
+                      <td className="px-2 py-1">{prod.cantidadMinima}</td>
+                      <td className="px-2 py-1">{prod.ultima_actualizacion ? new Date(prod.ultima_actualizacion).toLocaleString() : ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded font-bold"
+                onClick={handleCerrarReporte}
+              >
+                Cerrar
+              </button>
+              <button
+                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-bold"
+                onClick={handleGenerarPDF}
+              >
+                <span role="img" aria-label="pdf">📝</span> Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

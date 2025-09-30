@@ -60,9 +60,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 
 // Configurar CORS
+// Configurar CORS
+const allowedOrigins = process.env.CORS_ORIGIN
+  ? process.env.CORS_ORIGIN.split(',')
+  : ['http://localhost:3000'];
+
 const corsOptions = {
   origin: function (origin, callback) {
-    const allowedOrigins = ['http://localhost:3000']; // Agrega más si necesitas: ['http://localhost:3000', 'http://localhost:4200']
     // Permitir requests sin origin (postman, mobile, etc.)
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {

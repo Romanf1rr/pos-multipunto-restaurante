@@ -39,8 +39,8 @@ const LoginScreen = ({ onLogin }) => {
           <div className="mx-auto w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
             <span className="text-white text-3xl">🏪</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">POS Sistema</h1>
-          <p className="text-gray-600">Sistema Multipunto Restaurante</p>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">POS ingenieria360</h1>
+          <p className="text-gray-600">Sistema Multipunto </p>
         </div>
         
         {error && (
