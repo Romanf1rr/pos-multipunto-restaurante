@@ -205,3 +205,63 @@ markdown# Sesión [NÚMERO] - [FECHA]
 ## Archivos Modificados:
 - archivo1.js
 - archivo2.jsx
+## 🌐 Despliegue en Producción (Google Cloud)
+
+Este proyecto está desplegado en **Google Cloud Platform** usando una VM, lo que permite acceso desde cualquier parte del mundo sin necesidad de estar en la misma red local.
+
+### **Características del Despliegue:**
+- ✅ Acceso remoto desde cualquier dispositivo (móvil, tablet, PC)
+- ✅ No requiere VPN ni red local
+- ✅ Base de datos persistente en la nube
+- ✅ Reinicio automático del servidor
+- ✅ Logs centralizados con PM2
+- ✅ Costo: ~$8-10 USD/mes
+
+### **Acceso en Producción:**
+URL: `http://34.51.73.247:3000`
+
+### **Documentación completa:**
+Ver [DEPLOYMENT.md](./DEPLOYMENT.md) para instrucciones detalladas de despliegue.
+
+---
+
+## 👥 Credenciales de Prueba
+
+### Administrador
+- Usuario: `admin`
+- Contraseña: `admin123`
+
+### Mesero
+- Usuario: `tablet1`
+- Contraseña: `tablet123`
+
+### Cajero
+- Usuario: `tablet2`
+- Contraseña: `caja123`
+
+---
+
+## 🔧 Administración del Servidor en Producción
+```bash
+# Ver estado del servidor
+pm2 status
+
+# Ver logs en tiempo real
+pm2 logs pos-server
+
+# Reiniciar servidor
+pm2 restart pos-server
+
+# Actualizar desde GitHub
+cd ~/pos-multipunto-restaurante
+git pull
+cd frontend && npm run build
+pm2 restart pos-server
+```
+
+---
+
+## 📊 Estado del Proyecto
+
+Ver [PROGRESS.md](./PROGRESS.md) para el estado detallado del desarrollo (95% completado).
+
