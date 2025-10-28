@@ -1,0 +1,464 @@
+import React, { useState, useEffect } from 'react';
+import { Download, Eye, Search, DollarSign, Clock, XCircle, TrendingUp } from 'lucide-react';
+import apiService from '../services/apiService';
+
+export default function SalesReportView() {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [loading, setLoading] = useState(false);
+  const [dashboardData, setDashboardData] = useState(null);
+  const [activeShift, setActiveShift] = useState(null);
+  const [shifts, setShifts] = useState([]);
+  const [openShiftModal, setOpenShiftModal] = useState(false);
+  const [closeShiftModal, setCloseShiftModal] = useState(false);
+  const [startingCash, setStartingCash] = useState('');
+  const [endingCash, setEndingCash] = useState('');
+  const [sales, setSales] = useState([]);
+  const [selectedSale, setSelectedSale] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [cancelModal, setCancelModal] = useState(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelledSales, setCancelledSales] = useState([]);
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'dashboard') await loadDashboard();
+      else if (activeTab === 'shifts') { await loadShifts(); await loadActiveShift(); }
+      else if (activeTab === 'sales') await loadSales();
+      else if (activeTab === 'cancelled') await loadCancelledSales();
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadDashboard = async () => {
+    const r = await apiService.request('/api/reports/dashboard');
+    setDashboardData(r.dashboard);
+  };
+
+  const loadActiveShift = async () => {
+    const r = await apiService.request('/api/shifts/active');
+    setActiveShift(r.shift);
+  };
+
+  const loadShifts = async () => {
+    const r = await apiService.request('/api/shifts?limit=50');
+    setShifts(r.shifts || []);
+  };
+
+  const loadSales = async () => {
+    const r = await apiService.request('/api/sales?limit=100');
+    setSales(r.sales || []);
+  };
+
+  const loadCancelledSales = async () => {
+    const r = await apiService.request('/api/reports/cancelled?limit=100');
+    setCancelledSales(r.cancelledSales || []);
+  };
+
+  const openShift = async () => {
+    try {
+      await apiService.request('/api/shifts', {
+        method: 'POST',
+        body: JSON.stringify({ startingCash: parseFloat(startingCash) || 0 })
+      });
+      setOpenShiftModal(false);
+      setStartingCash('');
+      await loadActiveShift();
+      alert('Turno abierto correctamente');
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error abriendo turno');
+    }
+  };
+
+  const closeShift = async () => {
+    try {
+      await apiService.request(`/api/shifts/${activeShift.id}/close`, {
+        method: 'PUT',
+        body: JSON.stringify({ endingCash: parseFloat(endingCash) || 0 })
+      });
+      setCloseShiftModal(false);
+      setEndingCash('');
+      await loadActiveShift();
+      await loadShifts();
+      alert('Turno cerrado correctamente');
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error cerrando turno');
+    }
+  };
+
+  const cancelSale = async () => {
+    try {
+      await apiService.request(`/api/sales/${cancelModal.id}/cancel`, {
+        method: 'PUT',
+        body: JSON.stringify({ reason: cancelReason })
+      });
+      setCancelModal(null);
+      setCancelReason('');
+      await loadSales();
+      alert('Ticket cancelado correctamente');
+    } catch (error) {
+      alert(error.response?.data?.error || 'Error cancelando ticket');
+    }
+  };
+
+  const filteredSales = sales.filter(sale => 
+    selectedSale.id.toString().includes(searchTerm) ||
+    (selectedSale.Table?.number && selectedSale.Table.number.toString().includes(searchTerm)) ||
+    (selectedSale.User?.name && selectedSale.User.name.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
+  const getOrderTypeLabel = (type) => {
+    const labels = { 'dine-in': 'Comer aquí', 'takeaway': 'Para llevar', 'delivery': 'A domicilio' };
+    return labels[type] || type;
+  };
+
+  const getPaymentMethodLabel = (method) => {
+    const labels = { 'cash': 'Efectivo', 'card': 'Tarjeta', 'efectivo': 'Efectivo', 'tarjeta': 'Tarjeta' };
+    return labels[method] || method;
+  };
+
+  if (loading && !dashboardData && !activeShift && sales.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Cargando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-gray-50">
+      <div className="bg-white shadow-sm border-b">
+        <div className="px-6 py-4">
+          <h1 className="text-2xl font-bold text-gray-800">📊 Gestión de Ventas y Turnos</h1>
+        </div>
+        <div className="flex border-t">
+          <button onClick={() => setActiveTab('dashboard')} className={`px-6 py-3 font-medium border-b-2 ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'}`}>
+            <TrendingUp className="inline mr-2" size={18} />Dashboard
+          </button>
+          <button onClick={() => setActiveTab('shifts')} className={`px-6 py-3 font-medium border-b-2 ${activeTab === 'shifts' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'}`}>
+            <Clock className="inline mr-2" size={18} />Turnos
+          </button>
+          <button onClick={() => setActiveTab('sales')} className={`px-6 py-3 font-medium border-b-2 ${activeTab === 'sales' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'}`}>
+            <DollarSign className="inline mr-2" size={18} />Historial
+          </button>
+          <button onClick={() => setActiveTab('cancelled')} className={`px-6 py-3 font-medium border-b-2 ${activeTab === 'cancelled' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-600'}`}>
+            <XCircle className="inline mr-2" size={18} />Cancelados
+          </button>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto p-6">
+        {activeTab === 'dashboard' && dashboardData && (
+          <div>
+            <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Total Ventas</p>
+                <p className="text-3xl font-bold text-blue-600">{dashboardData.totalSales}</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Total Recaudado</p>
+                <p className="text-3xl font-bold text-green-600">${dashboardData.totalRevenue}</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Efectivo</p>
+                <p className="text-3xl font-bold text-purple-600">${dashboardData.cashSales}</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Tarjeta</p>
+                <p className="text-3xl font-bold text-orange-600">${dashboardData.cardSales}</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Ticket Promedio</p>
+                <p className="text-2xl font-bold text-gray-800">${dashboardData.averageTicket}</p>
+              </div>
+              <div className="bg-white p-6 rounded-lg shadow">
+                <p className="text-sm text-gray-600 mb-1">Tickets Cancelados</p>
+                <p className="text-2xl font-bold text-red-600">{dashboardData.cancelledSales}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'shifts' && (
+          <div>
+            {activeShift ? (
+              <div className="bg-green-50 border-2 border-green-500 rounded-lg p-6 mb-6">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h3 className="text-xl font-bold text-green-800 mb-2">🟢 Turno Activo</h3>
+                    <p className="text-sm text-gray-600">Iniciado: {new Date(activeShift.startTime).toLocaleString('es-MX')}</p>
+                    <p className="text-sm text-gray-600">Efectivo inicial: ${parseFloat(activeShift.startingCash).toFixed(2)}</p>
+                  </div>
+                  <button onClick={() => setCloseShiftModal(true)} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Cerrar Turno
+                  </button>
+                </div>
+                {activeShift.currentStats && (
+                  <div className="grid grid-cols-4 gap-4 mt-4">
+                    <div className="bg-white p-4 rounded">
+                      <p className="text-xs text-gray-600">Transacciones</p>
+                      <p className="text-2xl font-bold">{activeShift.currentStats.totalTransactions}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded">
+                      <p className="text-xs text-gray-600">Total Ventas</p>
+                      <p className="text-2xl font-bold text-green-600">${activeShift.currentStats.totalSales}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded">
+                      <p className="text-xs text-gray-600">Efectivo</p>
+                      <p className="text-2xl font-bold text-purple-600">${activeShift.currentStats.cashSales}</p>
+                    </div>
+                    <div className="bg-white p-4 rounded">
+                      <p className="text-xs text-gray-600">Tarjeta</p>
+                      <p className="text-2xl font-bold text-orange-600">${activeShift.currentStats.cardSales}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="bg-gray-100 rounded-lg p-6 mb-6 text-center">
+                <p className="text-gray-600 mb-4">No hay turno activo</p>
+                <button onClick={() => setOpenShiftModal(true)} className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 font-semibold">
+                  🕐 Abrir Nuevo Turno
+                </button>
+              </div>
+            )}
+            <div className="bg-white rounded-lg shadow">
+              <div className="p-4 border-b">
+                <h3 className="font-bold text-lg">Historial de Turnos</h3>
+              </div>
+              <div className="overflow-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="text-left p-3 text-sm font-semibold">Usuario</th>
+                      <th className="text-left p-3 text-sm font-semibold">Inicio</th>
+                      <th className="text-left p-3 text-sm font-semibold">Fin</th>
+                      <th className="text-right p-3 text-sm font-semibold">Total Ventas</th>
+                      <th className="text-center p-3 text-sm font-semibold">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {shifts.map(shift => (
+                      <tr key={shift.id} className="border-b hover:bg-gray-50">
+                        <td className="p-3">{shift.User?.name}</td>
+                        <td className="p-3 text-sm">{new Date(shift.startTime).toLocaleString('es-MX')}</td>
+                        <td className="p-3 text-sm">{shift.endTime ? new Date(shift.endTime).toLocaleString('es-MX') : '-'}</td>
+                        <td className="p-3 text-right font-bold text-green-600">${parseFloat(shift.totalSales || 0).toFixed(2)}</td>
+                        <td className="p-3 text-center">
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${shift.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
+                            {shift.status === 'active' ? 'Activo' : 'Cerrado'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'sales' && (
+          <div>
+            <div className="mb-4">
+              <input type="text" placeholder="Buscar por ticket, mesa o usuario..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full px-4 py-2 border rounded-lg" />
+            </div>
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-gray-100 border-b">
+                  <tr>
+                    <th className="text-left p-4 font-semibold">Ticket #</th>
+                    <th className="text-left p-4 font-semibold">Fecha/Hora</th>
+                    <th className="text-left p-4 font-semibold">Total</th>
+                    <th className="text-left p-4 font-semibold">Pago</th>
+                    <th className="text-left p-4 font-semibold">Usuario</th>
+                    <th className="text-center p-4 font-semibold">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSales.filter(s => s.status === 'completed').map(sale => (
+                    <tr key={selectedSale.id} className="border-b hover:bg-gray-50">
+                      <td className="p-4"><span className="font-mono font-bold text-blue-600">#{selectedSale.id}</span></td>
+                      <td className="p-4 text-sm">{new Date(selectedSale.createdAt).toLocaleDateString('es-MX')}<br/>{new Date(selectedSale.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td className="p-4"><span className="font-bold text-green-600 text-lg">${parseFloat(selectedSale.total).toFixed(2)}</span></td>
+                      <td className="p-4 text-sm">{getPaymentMethodLabel(selectedSale.paymentMethod)}</td>
+                      <td className="p-4 text-sm">{selectedSale.User?.name || 'N/A'}</td>
+                      <td className="p-4 text-center">
+                        <button onClick={() => setSelectedSale(sale)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 mr-2">
+                          <Eye size={16} className="inline" /> Ver
+                        </button>
+                        <button onClick={() => setCancelModal(sale)} className="px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200">
+                          <XCircle size={16} className="inline" /> Cancelar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'cancelled' && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="p-4 border-b bg-red-50">
+              <h3 className="font-bold text-lg text-red-800">Tickets Cancelados ({cancelledSales.length})</h3>
+            </div>
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b">
+                <tr>
+                  <th className="text-left p-4 font-semibold">Ticket #</th>
+                  <th className="text-left p-4 font-semibold">Fecha Cancelación</th>
+                  <th className="text-left p-4 font-semibold">Total</th>
+                  <th className="text-left p-4 font-semibold">Motivo</th>
+                  <th className="text-left p-4 font-semibold">Usuario</th>
+                  <th className="text-center p-4 font-semibold">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cancelledSales.map(sale => (
+                  <tr key={selectedSale.id} className="border-b hover:bg-gray-50">
+                    <td className="p-4"><span className="font-mono font-bold text-red-600">#{selectedSale.id}</span></td>
+                    <td className="p-4 text-sm">{new Date(selectedSale.cancelledAt).toLocaleString('es-MX')}</td>
+                    <td className="p-4"><span className="font-bold text-gray-600">${parseFloat(selectedSale.total).toFixed(2)}</span></td>
+                    <td className="p-4 text-sm text-gray-600">{selectedSale.cancelReason || 'Sin motivo'}</td>
+                    <td className="p-4 text-sm">{selectedSale.User?.name || 'N/A'}</td>
+                    <td className="p-4 text-center">
+                      <button onClick={() => setSelectedSale(sale)} className="px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                        <Eye size={16} className="inline" /> Ver
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {openShiftModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setOpenShiftModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4">Abrir Nuevo Turno</h2>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Efectivo Inicial</label>
+              <input type="number" value={startingCash} onChange={(e) => setStartingCash(e.target.value)} placeholder="0.00" className="w-full px-4 py-2 border rounded-lg" step="0.01" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={openShift} className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Abrir Turno</button>
+              <button onClick={() => setOpenShiftModal(false)} className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {closeShiftModal && activeShift && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setCloseShiftModal(false)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4">Cerrar Turno</h2>
+            <div className="bg-gray-100 p-4 rounded-lg mb-4">
+              <div className="flex justify-between mb-2">
+                <span>Efectivo inicial:</span>
+                <span className="font-bold">${parseFloat(activeShift.startingCash).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between mb-2">
+                <span>Ventas en efectivo:</span>
+                <span className="font-bold text-green-600">${activeShift.currentStats?.cashSales || '0.00'}</span>
+              </div>
+              <div className="flex justify-between border-t pt-2">
+                <span className="font-bold">Efectivo esperado:</span>
+                <span className="font-bold text-blue-600">${(parseFloat(activeShift.startingCash) + parseFloat(activeShift.currentStats?.cashSales || 0)).toFixed(2)}</span>
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Efectivo Final (contado)</label>
+              <input type="number" value={endingCash} onChange={(e) => setEndingCash(e.target.value)} placeholder="0.00" className="w-full px-4 py-2 border rounded-lg" step="0.01" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={closeShift} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Cerrar Turno</button>
+              <button onClick={() => setCloseShiftModal(false)} className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {cancelModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setCancelModal(null)}>
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4 text-red-600">⚠️ Cancelar Ticket #{cancelModal.id}</h2>
+            <p className="mb-4 text-gray-600">Esta acción no se puede deshacer. El ticket quedará marcado como cancelado.</p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Motivo de cancelación</label>
+              <textarea value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} placeholder="Escribe el motivo..." className="w-full px-4 py-2 border rounded-lg" rows="3" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={cancelSale} className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Confirmar Cancelación</button>
+              <button onClick={() => { setCancelModal(null); setCancelReason(''); }} className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedSale && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" onClick={() => setSelectedSale(null)}>
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[80vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="p-6 border-b">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold text-gray-800">Ticket #{selectedSale.id}</h2>
+                <button onClick={() => setSelectedSale(null)} className="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+              </div>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-2 gap-4 mb-6">
+                <div><p className="text-sm text-gray-600">Fecha</p><p className="font-semibold">{new Date(selectedSale.createdAt).toLocaleString('es-MX')}</p></div>
+                <div><p className="text-sm text-gray-600">Tipo de Orden</p><p className="font-semibold">{getOrderTypeLabel(selectedSale.orderType)}</p></div>
+                {selectedSale.Table && (<div><p className="text-sm text-gray-600">Mesa</p><p className="font-semibold">Mesa {selectedSale.Table.number}</p></div>)}
+                <div><p className="text-sm text-gray-600">Usuario</p><p className="font-semibold">{selectedSale.User?.name || 'N/A'}</p></div>
+                <div><p className="text-sm text-gray-600">Método de Pago</p><p className="font-semibold">{getPaymentMethodLabel(selectedSale.paymentMethod)}</p></div>
+                <div><p className="text-sm text-gray-600">Estado</p><p className={`font-semibold ${selectedSale.status === 'completed' ? 'text-green-600' : 'text-red-600'}`}>{selectedSale.status === 'completed' ? 'Completado' : 'Cancelado'}</p></div>
+              </div>
+              {selectedSale.cancelledAt && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-red-800"><strong>Cancelado:</strong> {new Date(selectedSale.cancelledAt).toLocaleString('es-MX')}</p>
+                  <p className="text-sm text-red-800"><strong>Motivo:</strong> {selectedSale.cancelReason || 'Sin motivo'}</p>
+                </div>
+              )}
+              <h3 className="font-bold text-lg mb-3">Productos</h3>
+              <div className="space-y-2 mb-6">
+                {selectedSale.SaleItems?.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center py-2 border-b">
+                    <div className="flex-1">
+                      <p className="font-medium">{item.MenuItem?.name || 'Producto'}</p>
+                      <p className="text-sm text-gray-600">Cantidad: {item.quantity}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold">${parseFloat(item.totalPrice).toFixed(2)}</p>
+                      <p className="text-xs text-gray-600">${parseFloat(item.unitPrice).toFixed(2)} c/u</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="border-t pt-4">
+                <div className="flex justify-between text-lg font-bold">
+                  <span>TOTAL:</span>
+                  <span className="text-green-600">${parseFloat(selectedSale.total).toFixed(2)}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

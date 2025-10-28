@@ -63,10 +63,7 @@ const User = sequelize.define('User', {
   },
   deviceId: {
     type: DataTypes.STRING
-  },
-  shiftId: { type: DataTypes.INTEGER, allowNull: true, references: { model: 'shifts', key: 'id' } },
-  cancelledAt: { type: DataTypes.DATE, allowNull: true },
-  cancelReason: { type: DataTypes.TEXT, allowNull: true }
+  }
 }, {
   tableName: 'users',
   timestamps: true

@@ -1,0 +1,121 @@
+/* Estilos responsive para móviles */
+
+/* Móviles (menos de 768px) */
+@media (max-width: 767px) {
+  /* Header del POS */
+  .pos-header {
+    padding: 0.5rem !important;
+  }
+  
+  .pos-title {
+    font-size: 1.25rem !important;
+  }
+  
+  /* Botones de tipo de orden */
+  .order-type-buttons {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    width: 100% !important;
+  }
+  
+  .order-type-buttons button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  
+  /* Layout principal */
+  .pos-main-layout {
+    flex-direction: column !important;
+  }
+  
+  /* Panel izquierdo (mesas/clientes) */
+  .pos-side-panel {
+    width: 100% !important;
+    max-height: 50vh !important;
+    overflow-y: auto !important;
+    border-bottom: 1px solid #e5e7eb !important;
+    border-right: none !important;
+  }
+  
+  /* Grid de mesas */
+  .tables-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  /* Botones de mesa */
+  .table-button {
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  /* Área de productos */
+  .products-area {
+    width: 100% !important;
+    padding: 0.75rem !important;
+  }
+  
+  /* Grid de productos */
+  .products-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  
+  /* Tarjetas de productos */
+  .product-card {
+    padding: 0.75rem !important;
+  }
+  
+  .product-card img {
+    height: 80px !important;
+  }
+  
+  .product-name {
+    font-size: 0.875rem !important;
+  }
+  
+  .product-price {
+    font-size: 1rem !important;
+  }
+  
+  /* Carrito */
+  .cart-panel {
+    width: 100% !important;
+    max-height: 40vh !important;
+    border-left: none !important;
+    border-top: 1px solid #e5e7eb !important;
+  }
+  
+  /* Items del carrito */
+  .cart-item {
+    padding: 0.5rem !important;
+  }
+  
+  /* Botones de acción */
+  .action-button {
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+}
+
+/* Tablets (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .pos-side-panel {
+    width: 33.333333% !important;
+  }
+  
+  .tables-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+  
+  .products-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+/* Desktop (1024px+) - estilos por defecto */
+@media (min-width: 1024px) {
+  .products-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}

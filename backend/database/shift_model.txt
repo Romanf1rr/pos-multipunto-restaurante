@@ -1,0 +1,71 @@
+
+// Modelo de Turnos/Shifts
+const Shift = sequelize.define('Shift', {
+  id: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true
+  },
+  userId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'users',
+      key: 'id'
+    }
+  },
+  startTime: {
+    type: DataTypes.DATE,
+    allowNull: false,
+    defaultValue: DataTypes.NOW
+  },
+  endTime: {
+    type: DataTypes.DATE,
+    allowNull: true
+  },
+  startingCash: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: false,
+    defaultValue: 0
+  },
+  endingCash: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  expectedCash: {
+    type: DataTypes.DECIMAL(10, 2),
+    allowNull: true
+  },
+  totalSales: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
+  },
+  cashSales: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
+  },
+  cardSales: {
+    type: DataTypes.DECIMAL(10, 2),
+    defaultValue: 0
+  },
+  totalTransactions: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  status: {
+    type: DataTypes.ENUM('active', 'closed'),
+    defaultValue: 'active'
+  },
+  notes: {
+    type: DataTypes.TEXT,
+    allowNull: true
+  },
+  deviceId: {
+    type: DataTypes.STRING,
+    allowNull: true
+  }
+}, {
+  tableName: 'shifts',
+  timestamps: true
+});
+

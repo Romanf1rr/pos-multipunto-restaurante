@@ -14,6 +14,7 @@ const categoriesRoutes = require('./routes/categories');
 // Importar rutas y middleware
 const { router: authRoutes } = require('./routes/auth');
 const salesRoutes = require('./routes/sales');
+const shiftsRoutes = require('./routes/shifts');
 const menuRoutes = require('./routes/menu');
 const tablesRoutes = require('./routes/tables');
 const customersRoutes = require('./routes/customers'); // ✅ AGREGAR ESTA LÍNEA
@@ -100,6 +101,7 @@ app.use((req, res, next) => {
 // Rutas de la API
 app.use('/api/auth', authRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/shifts', shiftsRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tablesRoutes);
 app.use('/api/customers', customersRoutes); // ✅ AGREGAR ESTA LÍNEA

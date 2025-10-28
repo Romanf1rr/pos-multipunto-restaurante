@@ -1,6 +1,6 @@
 const express = require('express');
 const { Op } = require('sequelize');
-const { Sale, SaleItem, MenuItem, User, Table, Customer, sequelize } = require('../database/init');
+const { Sale, SaleItem, MenuItem, User, Table, Customer, Shift, sequelize } = require('../database/init');
 const { authenticateToken } = require('./auth');
 
 const router = express.Router();
@@ -111,6 +111,9 @@ router.post('/', async (req, res) => {
     const deliveryFeeAmount = parseFloat(deliveryFee || 0);
     const total = subtotal + tax + deliveryFeeAmount;
     
+    // Obtener turno activo
+    const activeShift = await Shift.findOne({ where: { userId: req.user.userId, status: "active" } });
+
     // Crear la venta
     const sale = await Sale.create({
       subtotal: subtotal.toFixed(2),
@@ -123,6 +126,7 @@ router.post('/', async (req, res) => {
       tableId: tableId || null,
       customerId: customerId || null,
       userId: req.user.userId,
+      shiftId: activeShift ? activeShift.id : null,
       deviceId: deviceId || null,
       deliveryAddress,
       synced: false
@@ -568,3 +572,79 @@ router.get('/stats/summary', async (req, res) => {
 });
 
 module.exports = router;
+// PUT /api/sales/:id/cancel - Cancelar ticket
+router.put('/:id/cancel', async (req, res) => {
+  const transaction = await sequelize.transaction();
+  
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const sale = await Sale.findByPk(id, {
+      include: [SaleItem]
+    });
+    
+    if (!sale) {
+      await transaction.rollback();
+      return res.status(404).json({
+        error: 'Venta no encontrada'
+      });
+    }
+    
+    // Verificar permisos
+    if (req.user.role !== 'admin' && req.user.role !== 'manager') {
+      await transaction.rollback();
+      return res.status(403).json({
+        error: 'Solo administradores pueden cancelar tickets'
+      });
+    }
+    
+    // Verificar que no esté ya cancelada
+    if (sale.cancelledAt) {
+      await transaction.rollback();
+      return res.status(400).json({
+        error: 'Esta venta ya está cancelada'
+      });
+    }
+    
+    // Restaurar stock
+    for (const item of sale.SaleItems) {
+      const menuItem = await MenuItem.findByPk(item.menuItemId);
+      if (menuItem && menuItem.stock !== -1) {
+        await menuItem.update({
+          stock: menuItem.stock + item.quantity
+        }, { transaction });
+      }
+    }
+    
+    // Marcar como cancelada
+    await sale.update({
+      status: 'cancelled',
+      cancelledAt: new Date(),
+      cancelReason: reason || 'Sin razón especificada'
+    }, { transaction });
+    
+    await transaction.commit();
+    
+    // Emitir evento via Socket.io
+    if (req.io) {
+      req.io.emit('sale-cancelled', {
+        saleId: sale.id,
+        timestamp: new Date().toISOString()
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Ticket cancelado correctamente'
+    });
+    
+  } catch (error) {
+    await transaction.rollback();
+    console.error('Error cancelando ticket:', error);
+    res.status(500).json({
+      error: 'Error interno del servidor'
+    });
+  }
+});
+

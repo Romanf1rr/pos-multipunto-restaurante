@@ -1,0 +1,219 @@
+// frontend/src/App.js - VERSIÓN FINAL LIMPIA
+import React, { useState, useEffect } from 'react';
+import { GlobalStateProvider } from './context/GlobalStateContext';
+
+// Importaciones de servicios y componentes
+import apiService from './services/apiService';
+import UnifiedPOSView from './components/UnifiedPOSView';
+import MenuManagementView from './components/MenuManagementView';
+import InventarioView from './components/Inventario/InventarioView';
+
+// Componente de Login
+const LoginScreen = ({ onLogin }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    try {
+      const deviceId = `device_${Date.now()}`;
+      const result = await apiService.login(username, password, deviceId);
+      localStorage.setItem('pos_user', JSON.stringify(result.user));
+      onLogin(result.user);
+    } catch (error) {
+      setError(error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-600 to-purple-700 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+        <div className="text-center mb-8">
+          <div className="mx-auto w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-4">
+            <span className="text-white text-3xl">🏪</span>
+          </div>
+          <h1 className="text-3xl font-bold text-gray-800 mb-2">POS ingenieria360</h1>
+          <p className="text-gray-600">Sistema Multipunto </p>
+        </div>
+        
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded-lg flex items-center">
+            <span className="mr-2">⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <input
+            type="text"
+            placeholder="Usuario"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+            disabled={loading}
+          />
+          <input
+            type="password"
+            placeholder="Contraseña"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            required
+            disabled={loading}
+          />
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+          >
+            {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+          </button>
+        </form>
+
+        <div className="mt-6 text-sm text-gray-600">
+          <p className="font-semibold mb-2">Usuarios de prueba:</p>
+          <div className="space-y-1">
+            <p><strong>Admin:</strong> admin / admin123</p>
+            <p><strong>Mesero:</strong> tablet1 / tablet123</p>
+            <p><strong>Cajero:</strong> tablet2 / caja123</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Sidebar
+const Sidebar = ({ currentView, setCurrentView, user }) => {
+  const menuOptions = [
+    { id: 'pos', label: 'POS Unificado', icon: '🛒' },
+    ...(user.role === 'admin' ? [
+      { id: 'menu', label: 'Gestión Menú', icon: '📋' },
+      { id: 'inventario', label: 'Gestión Inventario', icon: '📦' } // <-- AGREGADO INVENTARIO
+    ] : [])
+  ];
+
+  return (
+    <aside className="w-64 bg-gray-50 border-r border-gray-200 px-4 py-6">
+      <nav className="space-y-2">
+        {menuOptions.map((option) => (
+          <button
+            key={option.id}
+            onClick={() => setCurrentView(option.id)}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 ${
+              currentView === option.id 
+                ? 'bg-blue-100 text-blue-700 shadow-sm' 
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            <span className="text-lg">{option.icon}</span>
+            <span className="font-medium">{option.label}</span>
+          </button>
+        ))}
+      </nav>
+    </aside>
+  );
+};
+
+// Header
+const Header = ({ user, onLogout }) => {
+  return (
+    <header className="bg-white shadow-sm border-b border-gray-200 px-6 py-4">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-xl font-bold text-gray-800">POS Sistema Multipunto</h1>
+          <p className="text-sm text-gray-600">
+            Usuario: {user.name} ({user.role})
+          </p>
+        </div>
+        
+        <button
+          onClick={onLogout}
+          className="flex items-center space-x-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
+        >
+          <span>🚪</span>
+          <span>Cerrar Sesión</span>
+        </button>
+      </div>
+    </header>
+  );
+};
+
+// Componente principal interno
+const MainApp = () => {
+  const [user, setUser] = useState(null);
+  const [currentView, setCurrentView] = useState('pos');
+
+  useEffect(() => {
+    // Verificar si hay usuario guardado
+    const savedUser = localStorage.getItem('pos_user');
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser));
+      } catch (error) {
+        localStorage.removeItem('pos_user');
+      }
+    }
+  }, []);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+  };
+
+  const handleLogout = async () => {
+    await apiService.logout();
+    setUser(null);
+    setCurrentView('pos');
+  };
+
+
+
+// ...
+const renderCurrentView = () => {
+  switch (currentView) {
+    case 'pos':
+      return <UnifiedPOSView apiService={apiService} user={user} />;
+    case 'menu':
+      return <MenuManagementView apiService={apiService} user={user} />;
+    case 'inventario':
+      return <InventarioView />;
+    default:
+      return <UnifiedPOSView apiService={apiService} user={user} />;
+  }
+};
+
+  if (!user) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-50">
+      <Header user={user} onLogout={handleLogout} />
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar currentView={currentView} setCurrentView={setCurrentView} user={user} />
+        <main className="flex-1 overflow-y-auto">
+          {renderCurrentView()}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+// App principal con Provider
+const App = () => {
+  return (
+    <GlobalStateProvider>
+      <MainApp />
+    </GlobalStateProvider>
+  );
+};
+
+export default App;

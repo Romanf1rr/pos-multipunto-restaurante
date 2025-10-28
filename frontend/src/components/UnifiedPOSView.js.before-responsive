@@ -1,6 +1,5 @@
 // frontend/src/components/UnifiedPOSView.js - Versión completa con UTF-8 corregido
 import React, { useState, useEffect } from 'react';
-import '../responsive.css';
 import { useGlobalState } from '../context/GlobalStateContext';
 import { 
   ShoppingCart, Users, Truck, Package, Phone, MapPin, Plus, Search, 
@@ -10,6 +9,7 @@ import {
 import dataPersistence from '../services/DataPersistence';
 import { usePersistentTables } from '../hooks/usePersistentTables';
 
+import { useSocket } from '../hooks/useSocket';
 const UnifiedPOSView = ({ apiService, user }) => {
   // Usar mesas persistentes en lugar del estado global
   const {
@@ -57,6 +57,76 @@ const UnifiedPOSView = ({ apiService, user }) => {
 
   // Usar mesas persistentes en lugar de estado global
   const tables = persistentTables;
+
+  // 🔥 Socket.io para sincronización en tiempo real
+  const { socket, isConnected, on, off } = useSocket();
+
+  // 🔄 Listener: Sincronizar cuando se crea un producto
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleMenuItemCreated = (data) => {
+      console.log("🆕 Nuevo producto creado:", data.menuItem);
+      setMenuItems(prev => [...prev, data.menuItem]);
+    };
+
+    const handleMenuItemUpdated = (data) => {
+      console.log("✏️ Producto actualizado:", data.menuItem);
+      setMenuItems(prev => prev.map(item => 
+        item.id === data.menuItem.id ? data.menuItem : item
+      ));
+    };
+
+    const handleMenuItemDeleted = (data) => {
+      console.log("🗑️ Producto eliminado:", data.itemId);
+      setMenuItems(prev => prev.filter(item => item.id !== data.itemId));
+    };
+
+    const handleCategoryCreated = (data) => {
+      console.log("🆕 Nueva categoría creada:", data.category);
+      setCategories(prev => [...prev, data.category]);
+    };
+
+    const handleCategoryUpdated = (data) => {
+      console.log("✏️ Categoría actualizada:", data.category);
+      setCategories(prev => prev.map(cat => 
+        cat.id === data.category.id ? data.category : cat
+      ));
+    };
+
+    const handleTableStatusChanged = (data) => {
+      console.log("🪑 Estado de mesa cambiado:", data);
+      // Actualizar estado de mesas si es necesario
+    };
+
+    const handleCartUpdated = (data) => {
+      console.log("🛒 Carrito actualizado en mesa", data.tableId);
+      // Si es la mesa actual, recargar el carrito
+      if (selectedTable?.id === data.tableId) {
+        // Aquí podrías recargar el carrito de la mesa
+      }
+    };
+
+    // Registrar listeners
+    on("menu-item-created", handleMenuItemCreated);
+    on("menu-item-updated", handleMenuItemUpdated);
+    on("menu-item-deleted", handleMenuItemDeleted);
+    on("category-created", handleCategoryCreated);
+    on("category-updated", handleCategoryUpdated);
+    on("table-status-changed", handleTableStatusChanged);
+    on("cart-updated", handleCartUpdated);
+
+    // Cleanup
+    return () => {
+      off("menu-item-created", handleMenuItemCreated);
+      off("menu-item-updated", handleMenuItemUpdated);
+      off("menu-item-deleted", handleMenuItemDeleted);
+      off("category-created", handleCategoryCreated);
+      off("category-updated", handleCategoryUpdated);
+      off("table-status-changed", handleTableStatusChanged);
+      off("cart-updated", handleCartUpdated);
+    };
+  }, [socket, on, off, setMenuItems, setCategories, selectedTable]);
 
   // Cargar datos iniciales solo si no existen
   useEffect(() => {
@@ -535,14 +605,14 @@ const UnifiedPOSView = ({ apiService, user }) => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50">
+    <div className="h-full flex flex-col">
       {/* Header con tipo de pedido */}
-      <div className="pos-header bg-white shadow-sm border-b p-4">
+      <div className="bg-white shadow-sm border-b p-4">
         <div className="flex items-center justify-between">
-          <h1 className="pos-title text-2xl font-bold text-gray-800">POS Unificado</h1>
+          <h1 className="text-2xl font-bold text-gray-800">POS Unificado</h1>
           
           {/* Selector de tipo de pedido */}
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+          <div className="flex space-x-2">
             <button
               onClick={() => handleOrderTypeChange('dine-in')}
               className={`flex items-center px-4 py-2 rounded-lg transition-colors ${
@@ -589,9 +659,9 @@ const UnifiedPOSView = ({ apiService, user }) => {
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row flex-1 overflow-hidden">
+      <div className="flex flex-1">
         {/* Panel Izquierdo - Mesas o Clientes */}
-        <div className="pos-side-panel w-full md:w-1/3 lg:w-1/4 bg-white shadow-lg p-3 sm:p-4 max-h-[50vh] md:max-h-full overflow-y-auto">
+        <div className="w-1/4 bg-white shadow-lg p-4">
           {orderType === 'dine-in' && (
             <>
               <div className="flex items-center mb-4">
@@ -599,7 +669,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
                 <h2 className="text-xl font-bold text-gray-800">Mesas Persistentes</h2>
               </div>
               
-              <div className="tables-grid grid grid-cols-2 sm:grid-cols-3 md:grid-cols-2 lg:grid-cols-2 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 {tables.map(table => (
                   <button
                     key={table.id}
@@ -713,7 +783,7 @@ const UnifiedPOSView = ({ apiService, user }) => {
           </div>
 
           {/* Items del Menú */}
-          <div className="products-grid grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[calc(100vh-200px)]">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 overflow-y-auto max-h-[calc(100vh-200px)]">
             {filteredItems.map(item => (
               <button
                 key={item.id}
