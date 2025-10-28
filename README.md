@@ -1,267 +1,233 @@
-# 🏪 Sistema POS Multipunto - Restaurantes y Negocios
+# 🍽️ POS Sistema Multipunto - Restaurante
 
-![Estado del Proyecto](https://img.shields.io/badge/Estado-En%20Desarrollo-yellow)
-![Versión](https://img.shields.io/badge/Versión-1.0.0--alpha-blue)
-![Licencia](https://img.shields.io/badge/Licencia-MIT-green)
+Sistema de Punto de Venta moderno para restaurantes con gestión de mesas, turnos, inventario y reportes.
 
-## 📋 Descripción del Proyecto
+---
 
-Sistema de Punto de Venta moderno, multipunto y offline-first diseñado para restaurantes, loncherías, cafeterías y papelerías. Funciona tanto online como offline, con sincronización automática entre dispositivos.
+## 🎯 **Características Principales**
 
-## 🎯 Características Principales
+### ✅ **Completamente Funcional**
+- 🖥️ **POS Unificado** con mesas persistentes
+- 🍔 **Gestión de Menú** e inventario
+- 👥 **Gestión de Clientes**
+- 💰 **Sistema de Ventas** con múltiples métodos de pago
+- 🕐 **Sistema de Turnos/Cortes** (Backend completo)
+- 📊 **Reportes y Dashboard**
+- ❌ **Cancelación de tickets** con motivos
+- 🔄 **Actualizaciones en tiempo real** (Socket.io)
 
-- ✅ **Funcionamiento Offline**: Opera sin conexión a internet
-- ✅ **Multipunto**: Múltiples tablets/dispositivos conectados
-- ✅ **PWA**: Instalable como aplicación nativa
-- ✅ **Tiempo Real**: Sincronización automática entre dispositivos
-- ✅ **Responsive**: Optimizado para tablets y desktop
-- ✅ **Seguro**: Sistema de usuarios y roles
+### 🚧 **En Desarrollo**
+- 🖨️ **Impresión de tickets** (POS-80)
+- 📱 **App móvil** React Native
+- 📈 **Gráficas avanzadas**
 
-## 🏗️ Arquitectura del Sistema
+---
 
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   TABLET 1      │    │   SERVIDOR      │    │   TABLET 2      │
-│   (Meseros)     │◄──►│   LOCAL         │◄──►│   (Caja)        │
-│   React PWA     │    │   Node.js +     │    │   React PWA     │
-│                 │    │   SQLite        │    │                 │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-│
-┌─────────────────┐
-│   INTERNET      │
-│   (Opcional)    │
-│   Sincronización│
-└─────────────────┘
+## 🛠️ **Tecnologías**
 
-## 📁 Estructura del Proyecto
+### **Backend**
+- Node.js + Express
+- SQLite + Sequelize ORM
+- Socket.io
+- JWT para autenticación
 
-pos-multipunto-restaurante/
-├── 📁 frontend/                 # Aplicación React PWA
-│   ├── 📁 public/
-│   │   ├── manifest.json
-│   │   └── sw.js               # Service Worker para offline
-│   ├── 📁 src/
-│   │   ├── 📁 components/      # Componentes reutilizables
-│   │   ├── 📁 pages/          # Páginas principales
-│   │   ├── 📁 hooks/          # Custom hooks
-│   │   ├── 📁 services/       # Servicios de API y storage
-│   │   └── 📁 utils/          # Utilidades
-│   └── package.json
-├── 📁 backend/                  # Servidor Node.js
-│   ├── 📁 routes/             # Rutas de API
-│   ├── 📁 models/             # Modelos de datos
-│   ├── 📁 middleware/         # Middleware personalizado
-│   ├── 📁 database/           # Configuración de BD
-│   └── server.js
-├── 📁 docs/                    # Documentación
-│   ├── 📁 sesiones/           # Progreso por sesión
-│   ├── api.md                 # Documentación API
-│   ├── instalacion.md         # Guía de instalación
-│   └── arquitectura.md        # Documentación técnica
-├── 📁 scripts/                # Scripts de utilidad
-│   ├── setup.sh              # Script de instalación
-│   └── deploy.sh             # Script de despliegue
-├── .env.example               # Variables de entorno
-├── docker-compose.yml         # Para deployment
-└── README.md                  # Este archivo
+### **Frontend**
+- React 18
+- Tailwind CSS
+- Lucide Icons
+- Axios
 
+### **Infraestructura**
+- Google Cloud VM
+- PM2
+- Git/GitHub
 
-## 🛠️ Stack Tecnológico
+---
 
-### Frontend
-- **React 18**: Framework principal
-- **Tailwind CSS**: Estilos y diseño responsive
-- **Lucide React**: Iconografía moderna
-- **PWA**: Progressive Web App
-- **IndexedDB**: Base de datos local
+## 🚀 **Instalación y Despliegue**
 
-### Backend
-- **Node.js**: Servidor
-- **Express**: Framework web
-- **SQLite**: Base de datos local
-- **Socket.io**: Comunicación en tiempo real
-- **JWT**: Autenticación
-
-### DevOps
-- **Docker**: Containerización
-- **PM2**: Process manager
-- **GitHub Actions**: CI/CD
-
-## 🚀 Instalación Rápida
-
-### Prerrequisitos
-- Node.js 18+ 
+### **Requisitos**
+- Node.js 16+
+- npm o yarn
 - Git
-- NPM o Yarn
 
-### Comandos de Instalación
+### **Clonar repositorio**
 ```bash
-# 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/pos-multipunto-restaurante.git
+git clone https://github.com/Romanf1rr/pos-multipunto-restaurante.git
 cd pos-multipunto-restaurante
+```
 
-# 2. Instalar dependencias del backend
+### **Instalar dependencias**
+```bash
+# Backend
 cd backend
 npm install
 
-# 3. Instalar dependencias del frontend
+# Frontend
 cd ../frontend
 npm install
+```
 
-# 4. Configurar variables de entorno
-cp .env.example .env
-
-# 5. Inicializar base de datos
-npm run db:migrate
-
-# 6. Iniciar el proyecto
-npm run dev
-
-
-📱 Usuarios de Prueba
-UsuarioContraseñaRolDispositivoadminadmin123AdministradorDesktoptablet1tablet123MeseroTablettablet2caja123CajeroTabletmesero1mesa123MeseroCualquiera
-
-
-🎯 Roadmap de Desarrollo
-✅ Fase 1: Fundación (Sesión 1)
-
- Estructura básica del proyecto
- Sistema de autenticación
- Interfaz PWA responsive
- Almacenamiento offline básico
- Carrito de compras funcional
-
-🔄 Fase 2: Backend y Sincronización (Sesión 2)
-
- Servidor Express con API REST
- Base de datos SQLite local
- Sistema de sincronización en tiempo real
- WebSocket para comunicación entre tablets
-
-📋 Fase 3: Funcionalidades Avanzadas (Sesión 3)
-
- Gestión de mesas en tiempo real
- Sistema de reportes avanzado
- Gestión de inventario básico
- Impresión de tickets
-
-🚀 Fase 4: Producción (Sesión 4)
-
- PWA completamente funcional
- Docker containerization
- Script de instalación automática
- Documentación completa para usuarios finales
-
-📊 Estado Actual del Proyecto
-Última actualización: [FECHA]
-Progreso general: 25% completado
-Funcionalidades operativas:
-
-✅ Login multipunto
-✅ Interfaz básica de POS
-✅ Carrito de compras
-✅ Almacenamiento local
-⏳ Servidor backend (en desarrollo)
-
-🐛 Problemas Conocidos
-
-Sincronización: Aún no implementada entre dispositivos
-Base de datos: Usando localStorage temporal
-PWA: Falta service worker completo
-Roles: Sistema básico, necesita refinamiento
-
-📞 Soporte y Contribución
-Este proyecto está en desarrollo activo. Para reportar bugs o sugerir mejoras:
-
-Abre un Issue en GitHub
-Describe el problema detalladamente
-Incluye capturas de pantalla si es relevante
-Menciona el dispositivo/navegador usado
-
-📄 Licencia
-Este proyecto está bajo la licencia MIT. Ver LICENSE para más detalles.
-
-📝 Notas para Desarrollo
-Para mantener continuidad entre sesiones:
-
-Siempre actualiza este README con el progreso
-Documenta cambios importantes en docs/sesiones/
-Commitea frecuentemente con mensajes descriptivos
-Usa branches para funcionalidades grandes
-
-Template para nuevas sesiones:
-markdown# Sesión [NÚMERO] - [FECHA]
-
-## Objetivos Completados:
-- [ ] Objetivo 1
-- [ ] Objetivo 2
-
-## Próxima Sesión:
-- [ ] Pendiente 1
-- [ ] Pendiente 2
-
-## Decisiones Técnicas:
-- Decisión importante y su razón
-
-## Archivos Modificados:
-- archivo1.js
-- archivo2.jsx
-## 🌐 Despliegue en Producción (Google Cloud)
-
-Este proyecto está desplegado en **Google Cloud Platform** usando una VM, lo que permite acceso desde cualquier parte del mundo sin necesidad de estar en la misma red local.
-
-### **Características del Despliegue:**
-- ✅ Acceso remoto desde cualquier dispositivo (móvil, tablet, PC)
-- ✅ No requiere VPN ni red local
-- ✅ Base de datos persistente en la nube
-- ✅ Reinicio automático del servidor
-- ✅ Logs centralizados con PM2
-- ✅ Costo: ~$8-10 USD/mes
-
-### **Acceso en Producción:**
-URL: `http://34.51.73.247:3000`
-
-### **Documentación completa:**
-Ver [DEPLOYMENT.md](./DEPLOYMENT.md) para instrucciones detalladas de despliegue.
-
----
-
-## 👥 Credenciales de Prueba
-
-### Administrador
-- Usuario: `admin`
-- Contraseña: `admin123`
-
-### Mesero
-- Usuario: `tablet1`
-- Contraseña: `tablet123`
-
-### Cajero
-- Usuario: `tablet2`
-- Contraseña: `caja123`
-
----
-
-## 🔧 Administración del Servidor en Producción
+### **Configurar variables de entorno**
 ```bash
-# Ver estado del servidor
-pm2 status
+# backend/.env
+PORT=3000
+JWT_SECRET=tu_secret_key_aqui
+DATABASE_PATH=./database/pos.db
+```
 
-# Ver logs en tiempo real
-pm2 logs pos-server
+### **Iniciar desarrollo**
+```bash
+# Backend (puerto 3000)
+cd backend
+npm start
 
-# Reiniciar servidor
-pm2 restart pos-server
+# Frontend (puerto 3001)
+cd frontend
+npm start
+```
 
-# Actualizar desde GitHub
-cd ~/pos-multipunto-restaurante
-git pull
-cd frontend && npm run build
-pm2 restart pos-server
+### **Build para producción**
+```bash
+cd frontend
+npm run build
+
+# El backend servirá los archivos estáticos desde /frontend/build
 ```
 
 ---
 
-## 📊 Estado del Proyecto
+## 📡 **API Endpoints**
 
-Ver [PROGRESS.md](./PROGRESS.md) para el estado detallado del desarrollo (95% completado).
+### **Autenticación**
+- `POST /api/auth/login` - Login
+- `POST /api/auth/register` - Registro
 
+### **Ventas**
+- `GET /api/sales` - Listar ventas
+- `POST /api/sales` - Crear venta
+- `PUT /api/sales/:id/cancel` - Cancelar ticket
+
+### **Turnos**
+- `POST /api/shifts` - Abrir turno
+- `GET /api/shifts/active` - Turno activo
+- `PUT /api/shifts/:id/close` - Cerrar turno
+- `GET /api/shifts` - Listar turnos
+
+### **Reportes**
+- `GET /api/reports/dashboard` - Dashboard
+- `GET /api/reports/cancelled` - Tickets cancelados
+- `GET /api/reports/by-payment-method` - Por método de pago
+- `GET /api/reports/by-user` - Por usuario
+
+### **Productos**
+- `GET /api/menu` - Listar productos
+- `POST /api/menu` - Crear producto
+- `PUT /api/menu/:id` - Actualizar producto
+- `DELETE /api/menu/:id` - Eliminar producto
+
+### **Clientes**
+- `GET /api/customers` - Listar clientes
+- `POST /api/customers` - Crear cliente
+- `GET /api/customers/search?phone=XXX` - Buscar por teléfono
+
+---
+
+## 🗄️ **Estructura de Base de Datos**
+
+### **Tablas Principales**
+- `users` - Usuarios del sistema
+- `menu_items` - Productos/menú
+- `categories` - Categorías de productos
+- `customers` - Clientes
+- `tables` - Mesas del restaurante
+- `sales` - Ventas completadas
+- `sale_items` - Items de cada venta
+- `shifts` - Turnos/cortes de caja
+- `carts` - Carritos de compra (temporal)
+
+---
+
+## 📊 **Flujo de Trabajo**
+
+1. **Iniciar sesión** como administrador/cajero
+2. **Abrir turno** con efectivo inicial
+3. **Seleccionar mesa** o tipo de orden
+4. **Agregar productos** al carrito
+5. **Completar venta** con método de pago
+6. **Ver estadísticas** en tiempo real
+7. **Cerrar turno** al finalizar jornada
+8. **Imprimir corte** de turno
+
+---
+
+## 🎨 **Capturas de Pantalla**
+
+*(Agregar screenshots aquí)*
+
+---
+
+## 📋 **Roadmap**
+
+Ver [PROCESS.md](./PROCESS.md) para detalles completos.
+
+### **Corto Plazo (1-2 semanas)**
+- [ ] UI completa de turnos
+- [ ] Impresión de tickets
+- [ ] Sincronización con app móvil
+
+### **Mediano Plazo (1 mes)**
+- [ ] Gráficas y reportes avanzados
+- [ ] Gestión multi-usuario
+- [ ] Exportación de reportes
+
+### **Largo Plazo (3+ meses)**
+- [ ] Integración con pagos electrónicos
+- [ ] Programa de lealtad
+- [ ] Reservaciones
+- [ ] Analytics avanzado
+
+---
+
+## 🤝 **Contribuir**
+
+Las contribuciones son bienvenidas. Por favor:
+
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add some AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
+5. Abre un Pull Request
+
+---
+
+## 📝 **Licencia**
+
+Este proyecto es privado y propietario.
+
+---
+
+## 👨‍💻 **Autor**
+
+**Román Reyes**
+- GitHub: [@Romanf1rr](https://github.com/Romanf1rr)
+
+---
+
+## 🐛 **Reportar Bugs**
+
+Si encuentras un bug, por favor crea un issue en GitHub con:
+- Descripción del problema
+- Pasos para reproducir
+- Comportamiento esperado vs actual
+- Screenshots (si aplica)
+
+---
+
+## 📞 **Soporte**
+
+Para soporte o preguntas, contactar vía GitHub Issues.
+
+---
+
+**Hecho con ❤️ para mejorar la gestión de restaurantes**
